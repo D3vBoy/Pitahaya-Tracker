@@ -1,7 +1,7 @@
 import type { Config } from "tailwindcss";
 
 const config: Config = {
-  darkMode: "class", // Habilita el uso de dark: en clases
+  darkMode: "class",
   content: [
     "./pages/**/*.{js,ts,jsx,tsx,mdx}",
     "./components/**/*.{js,ts,jsx,tsx,mdx}",
@@ -11,23 +11,22 @@ const config: Config = {
     extend: {
       colors: {
         pitahaya: {
-          // Fondos y elementos base
-          light: {
-            bg: "#F8F0FF",      // Lila muy pálido y elegante
-            card: "#FFFFFF",     // Blanco para tarjetas
-            text: "#1A1030",     // Texto principal oscuro (Midnight Berry)
-            secondary: "#4A3A6A", // Texto secundario
-          },
-          // Oscuros profundos
-          black: "#0F0A1A",
-          dark: "#1A1030",
-          // Acentos vibrantes (funcionan en ambos modos)
-          accent: "#FF2D78",     // Electric Magenta (acción principal)
-          "accent-light": "#B828E8", // Neon Purple (hover, bordes)
-          yellow: "#FFB830",     // Solar Flare (advertencia/media)
-          green: "#00E5A0",      // Neon Mint (éxito/alta probabilidad)
-          coral: "#FF4560",      // Wild Watermelon (eliminar/peligro)
-          // Escala de grises (adaptada a la paleta)
+          // Fondos y Superficies
+          "light-bg": "#FFF0F5",   // Fondo principal claro (Lavender Blush)
+          "light-card": "#FFFFFF", // Tarjetas claras
+          black: "#0F0A1A",        // Fondo principal oscuro (Deep Void)
+          dark: "#1E0324",         // Superficies oscuras (Blackberry)
+          
+          // Acentos Vibrantes
+          accent: "#CF3790",       // Acción Principal (Deep Cerise)
+          "accent-light": "#39065E", // Hover y Bordes (Eggplant)
+          coral: "#F38D62",        // Acento Cálido (Tea Rose)
+
+          // Textos Específicos por Modo
+          "dark-text": "#1E0324",    // Texto principal en modo claro
+          "secondary-text": "#4A0E5C", // Texto secundario en modo claro
+          
+          // Escala de Grises Auxiliar (para textos muy secundarios)
           gray: {
             100: "#F2F0FA",
             300: "#B0A0C8",
@@ -36,13 +35,6 @@ const config: Config = {
             900: "#1A1030",
           },
         },
-      },
-      boxShadow: {
-        glass: "0 8px 32px 0 rgba(0, 0, 0, 0.05)",
-        neumorph: "8px 8px 16px #EAE0F5, -8px -8px 16px #FFFFFF",
-        "neumorph-inset": "inset 4px 4px 8px #EAE0F5, inset -4px -4px 8px #FFFFFF",
-        glow: "0 0 12px rgba(255, 45, 120, 0.4)",
-        "glow-strong": "0 0 20px rgba(255, 45, 120, 0.6)",
       },
     },
   },

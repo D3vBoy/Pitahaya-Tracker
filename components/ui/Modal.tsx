@@ -27,7 +27,7 @@ export default function Modal({ open, onClose, title, children }: ModalProps) {
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.9, y: 20 }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
-            className="relative glass rounded-2xl shadow-neumorph w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6"
+            className="relative glass rounded-2xl shadow-neumorph w-full max-w-3xl max-h-[90vh] overflow-y-auto p-6 text-pitahaya-dark-text dark:text-white"
           >
             <div className="flex items-center justify-between mb-6">
               <h2 className="text-xl font-bold text-white">{title}</h2>

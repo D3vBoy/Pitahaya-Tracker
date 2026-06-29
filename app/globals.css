@@ -1,66 +1,62 @@
 @import "tailwindcss";
 
-/* Modo claro: lila pálido y elegante */
+/* ===== MODO CLARO (Fondo Lavanda) ===== */
 :root {
-  --bg-primary: #F8F0FF;
-  --bg-secondary: #FFFFFF;
-  --bg-card: rgba(255, 255, 255, 0.9);
-  --text-primary: #1A1030;
-  --text-secondary: #4A3A6A;
-  --border-light: rgba(255, 45, 120, 0.2);
-  --scrollbar-track: #F8F0FF;
+  --bg-primary: #FFF0F5;
+  --bg-card: #FFFFFF;
+  --text-primary: #1E0324;   /* Morado Oscuro */
+  --text-secondary: #4A0E5C; /* Morado Medio */
+  --border-light: rgba(207, 55, 144, 0.2);
 }
 
-/* Modo oscuro: profundo y vibrante */
+/* ===== MODO OSCURO (Fondo Profundo) ===== */
 .dark {
   --bg-primary: #0F0A1A;
-  --bg-secondary: #1A1030;
-  --bg-card: rgba(26, 16, 48, 0.6);
+  --bg-card: #1E0324;
   --text-primary: #FFFFFF;
-  --text-secondary: #A0A0C0;
-  --border-light: rgba(255, 45, 120, 0.15);
-  --scrollbar-track: #0F0A1A;
+  --text-secondary: #D1C4E9; /* Lavanda Claro */
+  --border-light: rgba(207, 55, 144, 0.3);
 }
 
-/* Clase glass: se adapta automáticamente al tema */
+/* === COMPONENTE GLASS (Ahora perfecto en ambos modos) === */
 .glass {
   background: var(--bg-card);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-light);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.05);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
 }
 .dark .glass {
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
 }
 
-.glass-light {
-  background: rgba(184, 40, 232, 0.04);
-  backdrop-filter: blur(8px);
-  border: 1px solid rgba(0, 229, 160, 0.08);
+/* === INPUTS Y SELECTS (Estilo base unificado) === */
+.input-pitahaya {
+  width: 100%;
+  border-radius: 0.5rem;
+  padding: 0.625rem 1rem;
+  border: 1px solid rgba(207, 55, 144, 0.2);
+  transition: all 0.2s;
+  background-color: white;
+  color: #1E0324;
 }
-.dark .glass-light {
-  background: rgba(184, 40, 232, 0.08);
-}
-
-/* Botón con degradado (siempre vibrante) */
-.btn-gradient {
-  background: linear-gradient(135deg, #FF2D78 0%, #B828E8 100%);
-  transition: all 0.3s ease;
-  color: white !important;
-}
-.btn-gradient:hover {
-  box-shadow: 0 0 16px rgba(255, 45, 120, 0.5);
-  transform: translateY(-1px);
+.input-pitahaya:focus {
+  border-color: #CF3790;
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(207, 55, 144, 0.1);
 }
 
-::-webkit-scrollbar {
-  width: 8px;
+/* Modo Oscuro Inputs */
+.dark .input-pitahaya {
+  background-color: #1E0324;
+  color: white;
+  border-color: rgba(207, 55, 144, 0.4);
 }
-::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
+.dark .input-pitahaya::placeholder {
+  color: #A0A0C0;
 }
-::-webkit-scrollbar-thumb {
-  background: #FF2D78;
-  border-radius: 4px;
-}
+
+/* === SCROLLBAR === */
+::-webkit-scrollbar { width: 8px; }
+::-webkit-scrollbar-track { background: var(--bg-primary); }
+::-webkit-scrollbar-thumb { background: #CF3790; border-radius: 4px; }  
