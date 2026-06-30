@@ -1,62 +1,68 @@
 @import "tailwindcss";
 
-/* ===== MODO CLARO (Fondo Lavanda) ===== */
 :root {
-  --bg-primary: #FFF0F5;
-  --bg-card: #FFFFFF;
-  --text-primary: #1E0324;   /* Morado Oscuro */
-  --text-secondary: #4A0E5C; /* Morado Medio */
-  --border-light: rgba(207, 55, 144, 0.2);
+  color-scheme: dark;
+  --app-bg: #07040f;
+  --app-surface: rgba(18, 12, 28, 0.76);
+  --app-stroke: rgba(138, 86, 189, 0.22);
 }
 
-/* ===== MODO OSCURO (Fondo Profundo) ===== */
-.dark {
-  --bg-primary: #0F0A1A;
-  --bg-card: #1E0324;
-  --text-primary: #FFFFFF;
-  --text-secondary: #D1C4E9; /* Lavanda Claro */
-  --border-light: rgba(207, 55, 144, 0.3);
+html {
+  min-height: 100%;
+  background: #07040f;
+  scroll-behavior: smooth;
 }
 
-/* === COMPONENTE GLASS (Ahora perfecto en ambos modos) === */
-.glass {
-  background: var(--bg-card);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid var(--border-light);
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.05);
-}
-.dark .glass {
-  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
+body {
+  min-height: 100%;
+  background:
+    radial-gradient(circle at 8% -12%, rgba(243, 141, 98, 0.24), transparent 38%),
+    radial-gradient(circle at 88% -10%, rgba(184, 40, 232, 0.25), transparent 42%),
+    radial-gradient(circle at 50% 120%, rgba(57, 6, 94, 0.38), transparent 56%),
+    var(--app-bg);
+  color: #f3f4f6;
+  font-family: var(--font-body), system-ui, sans-serif;
+  overflow-x: hidden;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* === INPUTS Y SELECTS (Estilo base unificado) === */
-.input-pitahaya {
+a {
+  color: inherit;
+}
+
+::selection {
+  background: rgba(207, 55, 144, 0.28);
+  color: #ffffff;
+}
+
+.custom-scrollbar::-webkit-scrollbar {
+  height: 6px;
+  width: 6px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb {
+  background: #39065E;
+  border-radius: 10px;
+}
+
+.custom-scrollbar::-webkit-scrollbar-thumb:hover {
+  background: #CF3790;
+}
+
+.premium-panel {
+  background: linear-gradient(180deg, rgba(29, 18, 45, 0.82) 0%, rgba(15, 11, 24, 0.9) 100%);
+  border: 1px solid var(--app-stroke);
+  box-shadow: 0 12px 40px rgba(19, 14, 18, 0.45);
+  backdrop-filter: blur(16px);
+}
+
+.app-shell {
+  margin: 0 auto;
   width: 100%;
-  border-radius: 0.5rem;
-  padding: 0.625rem 1rem;
-  border: 1px solid rgba(207, 55, 144, 0.2);
-  transition: all 0.2s;
-  background-color: white;
-  color: #1E0324;
+  max-width: 1600px;
 }
-.input-pitahaya:focus {
-  border-color: #CF3790;
-  outline: none;
-  box-shadow: 0 0 0 3px rgba(207, 55, 144, 0.1);
-}
-
-/* Modo Oscuro Inputs */
-.dark .input-pitahaya {
-  background-color: #1E0324;
-  color: white;
-  border-color: rgba(207, 55, 144, 0.4);
-}
-.dark .input-pitahaya::placeholder {
-  color: #A0A0C0;
-}
-
-/* === SCROLLBAR === */
-::-webkit-scrollbar { width: 8px; }
-::-webkit-scrollbar-track { background: var(--bg-primary); }
-::-webkit-scrollbar-thumb { background: #CF3790; border-radius: 4px; }  

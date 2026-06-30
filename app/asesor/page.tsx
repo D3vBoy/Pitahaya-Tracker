@@ -1,14 +1,14 @@
 "use client";
-import { useEffect, useState, useMemo } from "react";
+export const dynamic = "force-dynamic";
+import { useCallback, useEffect, useState, useMemo } from "react";
 import { createClientSupabase } from "@/lib/supabase/client";
-import { motion } from "framer-motion";
-import toast from "react-hot-toast";
-import { FiPlus, FiUser } from "react-icons/fi";
-import { format } from "date-fns";
-import { es } from "date-fns/locale";
 import Modal from "@/components/ui/Modal";
 import ProspectForm from "@/components/prospects/ProspectForm";
 import SearchAndFilter from "@/components/prospects/SearchAndFilter";
+import ProspectsTable from "@/components/prospects/ProspectsTable";
+import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
+import KPICard from "@/components/ui/KPICard";
+import TabsNavigation from "@/components/ui/TabsNavigation";
 
 interface Prospect {
   id: string;
@@ -18,16 +18,9 @@ interface Prospect {
   probabilidad_cierre: number | null;
   proximo_seguimiento: string | null;
   proxima_accion: string | null;
-  fecha_cierre: string | null;
-  user_id?: string | null;
-  estatus_enganche?: string | null;
-  plan_financiamiento?: string | null;
-  apartado_realizado?: boolean | null;
-  fecha_apartado?: string | null;
-  monto_apartado?: number | null;
-  fecha_enganche?: string | null;
-  firma_pcv?: string | null;
-  observaciones?: string | null;
+  monto_total: number | null;
+  apartado_realizado: boolean;
+  user_id: string;
 }
 
 export default function AsesorPage() {
@@ -36,173 +29,147 @@ export default function AsesorPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<Partial<Prospect> | null>(null);
+  const [tab, setTab] = useState<"list" | "analytics">("list");
   const [filters, setFilters] = useState({
     search: "",
     estatus: "",
     probabilidadMin: "" as number | "",
     asesorId: "",
+    apartado: "",
   });
 
-  const fetchProspects = async () => {
-    try {
-      setLoading(true);
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
-      const { data, error } = await supabase
-        .from("prospects")
-        .select("*")
-        .eq("user_id", user.id)
-        .order("created_at", { ascending: false });
-      if (error) throw error;
-      setProspects(data || []);
-    } catch (err: any) {
-      toast.error("Error al cargar prospectos");
-    } finally {
-      setLoading(false);
-    }
-  };
+  const fetchProspects = useCallback(async () => {
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+    const { data } = await supabase
+      .from("prospects")
+      .select("*")
+      .eq("user_id", user.id)
+      .order("created_at", { ascending: false });
+    setProspects(data || []);
+    setLoading(false);
+  }, [supabase]);
 
   useEffect(() => {
-    fetchProspects();
-  }, []);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    void fetchProspects();
+  }, [fetchProspects]);
 
-  const filteredProspects = useMemo(() => {
-    return prospects.filter((p) => {
-      const nameMatch = p.nombre_cliente
-        .toLowerCase()
-        .includes(filters.search.toLowerCase());
-      const estatusMatch = !filters.estatus || p.estatus_general === filters.estatus;
-      const probMatch =
-        filters.probabilidadMin === "" ||
-        (p.probabilidad_cierre !== null && p.probabilidad_cierre >= filters.probabilidadMin);
-      return nameMatch && estatusMatch && probMatch;
-    });
-  }, [prospects, filters]);
+  const filtered = useMemo(
+    () =>
+      prospects.filter((p) => {
+        const nameMatch = p.nombre_cliente.toLowerCase().includes(filters.search.toLowerCase());
+        const estatusMatch = !filters.estatus || p.estatus_general === filters.estatus;
+        const probMatch =
+          filters.probabilidadMin === "" ||
+          (p.probabilidad_cierre !== null && p.probabilidad_cierre >= filters.probabilidadMin);
+        const apartadoMatch =
+          !filters.apartado ||
+          (filters.apartado === "apartados_activos" &&
+            p.apartado_realizado &&
+            p.estatus_general !== "Cerrado" &&
+            p.estatus_general !== "Perdido");
+        return nameMatch && estatusMatch && probMatch && apartadoMatch;
+      }),
+    [prospects, filters]
+  );
 
-  const openCreate = () => {
-    setEditingProspect(null);
-    setModalOpen(true);
-  };
-  const openEdit = (prospect: Prospect) => {
-    setEditingProspect(prospect);
-    setModalOpen(true);
-  };
-  const handleSuccess = () => fetchProspects();
+  const kpis = useMemo(() => {
+    const total = filtered.length;
+    const avgProb = total > 0 ? filtered.reduce((a, p) => a + (p.probabilidad_cierre || 0), 0) / total : 0;
+    const montoTotal = filtered.reduce((a, p) => a + (p.monto_total || 0), 0);
+    const activos = filtered.filter((p) => p.estatus_general !== "Cerrado" && p.estatus_general !== "Perdido").length;
+    return { total, avgProb, montoTotal, activos };
+  }, [filtered]);
 
-  const diasDesde = (fecha: string) => {
-    const diff = Math.floor(
-      (new Date().getTime() - new Date(fecha).getTime()) / (1000 * 60 * 60 * 24)
-    );
-    return diff;
+  const searchTerm = filters.search;
+  const setSearchTerm = (value: string) => {
+    setFilters((prev) => ({ ...prev, search: value }));
   };
-  const probColor = (prob: number | null) => {
-    if (prob === null) return "text-pitahaya-gray-500";
-    if (prob >= 70) return "text-pitahaya-green";
-    if (prob >= 40) return "text-pitahaya-yellow";
-    return "text-pitahaya-coral";
+  const uiFilters = {
+    estatus: filters.estatus,
+    probabilidad: filters.probabilidadMin === "" ? "" : String(filters.probabilidadMin),
+    asesor: filters.asesorId,
+    apartado: filters.apartado,
+  };
+  const setUiFilters = (next: { estatus?: string; probabilidad?: string; asesor?: string; apartado?: string }) => {
+    setFilters((prev) => ({
+      ...prev,
+      estatus: next.estatus ?? prev.estatus,
+      probabilidadMin:
+        next.probabilidad === undefined
+          ? prev.probabilidadMin
+          : next.probabilidad === ""
+            ? ""
+            : Number.parseInt(next.probabilidad, 10),
+      asesorId: next.asesor ?? prev.asesorId,
+      apartado: next.apartado ?? prev.apartado,
+    }));
   };
 
   return (
-    <div className="space-y-6">
-      <SearchAndFilter filters={filters} onChange={setFilters} showAsesorFilter={false} />
-      <motion.div
-        initial={{ opacity: 0, y: 20 }}
-        animate={{ opacity: 1, y: 0 }}
-        className="glass p-6 rounded-xl shadow-neumorph"
-      >
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-2xl font-bold text-white">
-            <FiUser className="inline mr-2" />
-            Mis prospectos ({filteredProspects.length})
-          </h2>
-          <motion.button
-            whileHover={{ scale: 1.05 }}
-            whileTap={{ scale: 0.95 }}
-            className="bg-pitahaya-accent hover:bg-pitahaya-accent-light text-white px-4 py-2 rounded-lg flex items-center gap-2 transition-colors"
-            onClick={openCreate}
-          >
-            <FiPlus /> Nuevo prospecto
-          </motion.button>
+    <div className="app-shell flex w-full flex-col gap-6 pb-6 text-white">
+      <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <KPICard titulo="Total prospectos" valor={kpis.total} glowColor="bg-[#CF3790]/20" />
+        <KPICard titulo="Activos" valor={kpis.activos} glowColor="bg-[#F38D62]/20" />
+        <KPICard titulo="Prob. promedio" valor={`${kpis.avgProb.toFixed(1)}%`} />
+        <KPICard
+          titulo="Monto pipeline"
+          valor={`$${kpis.montoTotal.toLocaleString("es-MX")}`}
+          textAccent="text-emerald-300"
+        />
+      </div>
+
+      <div className="flex w-full justify-start">
+        <TabsNavigation
+          activeTab={tab}
+          setActiveTab={setTab}
+          items={[
+            { id: "list", label: "Lista" },
+            { id: "analytics", label: "Analiticas" },
+          ]}
+        />
+      </div>
+
+      {tab === "list" ? (
+        <>
+          <SearchAndFilter
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+            filters={uiFilters}
+            setFilters={setUiFilters}
+            showAsesorFilter={false}
+            onNewProspect={() => {
+              setEditingProspect(null);
+              setModalOpen(true);
+            }}
+          />
+          <ProspectsTable
+            data={filtered}
+            loading={loading}
+            showAsesorColumn={false}
+            onRowClick={(prospect) => {
+              setEditingProspect(prospect);
+              setModalOpen(true);
+            }}
+          />
+        </>
+      ) : (
+        <div className="space-y-6">
+          <AnalyticsDashboard prospects={prospects} />
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm text-left">
-            <thead className="text-pitahaya-gray-300 border-b border-pitahaya-accent/20">
-              <tr>
-                <th className="py-3 px-2 text-pitahaya-light-secondary dark:text-pitahaya-gray-300">Cliente</th>
-                <th className="py-3 px-2 text-pitahaya-light-secondary dark:text-pitahaya-gray-300">1er contacto</th>
-                <th className="py-3 px-2 text-pitahaya-light-secondary dark:text-pitahaya-gray-300">Días</th>
-                <th className="py-3 px-2 text-pitahaya-light-secondary dark:text-pitahaya-gray-300">Estatus</th>
-                <th className="py-3 px-2 text-pitahaya-light-secondary dark:text-pitahaya-gray-300">Prob. cierre</th>
-                <th className="py-3 px-2 text-pitahaya-light-secondary dark:text-pitahaya-gray-300">Próx. acción</th>
-                <th className="py-3 px-2 text-pitahaya-light-secondary dark:text-pitahaya-gray-300">Próx. seguimiento</th>
-              </tr>
-            </thead>
-            <tbody>
-              {loading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-10 text-pitahaya-light-secondary dark:text-pitahaya-gray-500">
-                    Cargando prospectos...
-                  </td>
-                </tr>
-              ) : filteredProspects.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-10 text-pitahaya-light-secondary dark:text-pitahaya-gray-500">
-                    {prospects.length === 0
-                      ? "Aún no tienes prospectos. Crea el primero."
-                      : "Sin resultados para los filtros seleccionados."}
-                  </td>
-                </tr>
-              ) : (
-                filteredProspects.map((p) => (
-                  <motion.tr
-                    key={p.id}
-                    initial={{ opacity: 0 }}
-                    animate={{ opacity: 1 }}
-                    whileHover={{ backgroundColor: "rgba(124,58,237,0.05)" }}
-                    className="border-b border-pitahaya-accent/5 hover:cursor-pointer"
-                    onClick={() => openEdit(p)}
-                  >
-                    <td className="py-3 px-2 font-medium text-white">{p.nombre_cliente}</td>
-                    <td className="py-3 px-2 text-pitahaya-gray-300">
-                      {format(new Date(p.fecha_primer_contacto), "dd MMM yy", { locale: es })}
-                    </td>
-                    <td className="py-3 px-2">
-                      <span className="bg-pitahaya-accent/10 text-pitahaya-accent-light px-2 py-0.5 rounded-full text-xs">
-                        {diasDesde(p.fecha_primer_contacto)} días
-                      </span>
-                    </td>
-                    <td className="py-3 px-2">
-                      <span className="bg-pitahaya-dark/60 border border-pitahaya-accent/20 rounded-full px-2 py-0.5 text-xs">
-                        {p.estatus_general}
-                      </span>
-                    </td>
-                    <td className={`py-3 px-2 font-bold ${probColor(p.probabilidad_cierre)}`}>
-                      {p.probabilidad_cierre !== null ? `${p.probabilidad_cierre}%` : "—"}
-                    </td>
-                    <td className="py-3 px-2 text-pitahaya-gray-300 max-w-50 truncate">
-                      {p.proxima_accion || "—"}
-                    </td>
-                    <td className="py-3 px-2 text-pitahaya-gray-300">
-                      {p.proximo_seguimiento
-                        ? format(new Date(p.proximo_seguimiento), "dd MMM yy", { locale: es })
-                        : "—"}
-                    </td>
-                  </motion.tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
-      </motion.div>
+      )}
+
       <Modal
         open={modalOpen}
         onClose={() => setModalOpen(false)}
         title={editingProspect ? "Editar prospecto" : "Nuevo prospecto"}
       >
         <ProspectForm
+          key={editingProspect?.id ?? "new"}
           prospect={editingProspect}
           onClose={() => setModalOpen(false)}
-          onSuccess={handleSuccess}
+          onSuccess={fetchProspects}
         />
       </Modal>
     </div>

@@ -1,18 +1,11 @@
 "use client";
-export const dynamic = "force-dynamic";
 import { useRouter } from "next/navigation";
 import { createClientSupabase } from "@/lib/supabase/client";
-import { FiLogOut, FiSun, FiMoon } from "react-icons/fi";
-import { useTheme } from "@/components/providers/ThemeProvider";
+import { FiLogOut } from "react-icons/fi";
 
-export default function GerentaLayout({
-  children,
-}: {
-  children: React.ReactNode;
-}) {
+export default function GerentaLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const supabase = createClientSupabase();
-  const { theme, toggleTheme } = useTheme();
 
   const handleLogout = async () => {
     await supabase.auth.signOut();
@@ -20,32 +13,37 @@ export default function GerentaLayout({
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-pitahaya-light-bg dark:bg-pitahaya-black transition-colors">
-      <header className="glass border-b border-pitahaya-yellow/10 px-6 py-3 flex items-center justify-between">
-        <h1 className="font-orbitron text-xl bg-linear-to-r from-pitahaya-yellow to-pitahaya-accent bg-clip-text text-transparent drop-shadow-[0_0_8px_rgba(255,184,48,0.3)] dark:drop-shadow-[0_0_8px_rgba(255,184,48,0.5)]">
-          PITAHAYA · Gerenta
-        </h1>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={toggleTheme}
-            className="p-2 rounded-lg bg-pitahaya-accent/10 hover:bg-pitahaya-accent/20 transition-colors"
-            title={theme === "dark" ? "Modo claro" : "Modo oscuro"}
-          >
-            {theme === "dark" ? (
-              <FiSun className="text-pitahaya-yellow" />
-            ) : (
-              <FiMoon className="text-pitahaya-accent-light" />
-            )}
-          </button>
-          <button
-            onClick={handleLogout}
-            className="flex items-center gap-2 text-pitahaya-light-secondary dark:text-pitahaya-gray-300 hover:text-pitahaya-accent transition-colors text-sm"
-          >
-            <FiLogOut /> Cerrar sesión
-          </button>
+    <div className="min-h-screen flex flex-col bg-transparent">
+      <header className="sticky top-0 z-40 border-b border-pitahaya-border/60 bg-pitahaya-surface/80 backdrop-blur-2xl">
+        <div className="mx-auto flex h-20 w-full max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-10">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-2xl bg-gradient-primary shadow-glow-cerise">
+              <span className="font-orbitron text-sm font-bold text-white">P</span>
+            </div>
+            <div>
+              <h1 className="bg-gradient-primary bg-clip-text text-base leading-tight font-display font-semibold tracking-[0.2em] text-transparent">
+                PITAHAYA TRACKER
+              </h1>
+              <p className="text-[11px] uppercase tracking-[0.28em] text-pitahaya-gray-500">Panel Directivo</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-3">
+            <span className="hidden rounded-full border border-pitahaya-eggplant/50 bg-pitahaya-blackberry/70 px-3 py-1 text-[10px] font-semibold uppercase tracking-[0.22em] text-pitahaya-gray-300 sm:inline-flex">
+              Gerenta Maestro
+            </span>
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-2 rounded-xl border border-pitahaya-border bg-pitahaya-blackberry/70 px-4 py-2 text-sm font-medium text-pitahaya-gray-300 transition-all hover:border-pitahaya-cerise/50 hover:bg-pitahaya-cerise/10 hover:text-white"
+            >
+              <FiLogOut size={16} />
+              <span className="hidden sm:inline">Cerrar Sesión</span>
+            </button>
+          </div>
         </div>
       </header>
-      <main className="flex-1 p-6">{children}</main>
+      <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">
+        {children}
+      </main>
     </div>
   );
 }

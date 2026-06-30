@@ -1,15 +1,22 @@
 import type { Metadata } from "next";
-import { Inter, Orbitron } from "next/font/google";
+import { Manrope, Orbitron } from "next/font/google";
 import "./globals.css";
-import { Toaster } from "react-hot-toast";
-import { ThemeProvider } from "@/components/providers/ThemeProvider";
 
-const inter = Inter({ subsets: ["latin"], variable: "--font-inter" });
-const orbitron = Orbitron({ subsets: ["latin"], variable: "--font-orbitron" });
+const bodyFont = Manrope({
+  subsets: ["latin"],
+  variable: "--font-body",
+  display: "swap",
+});
+
+const displayFont = Orbitron({
+  subsets: ["latin"],
+  variable: "--font-display",
+  display: "swap",
+});
 
 export const metadata: Metadata = {
   title: "Pitahaya Tracker",
-  description: "Seguimiento de ventas de Pitahaya Investments",
+  description: "Control de Prospeccion Comercial",
 };
 
 export default function RootLayout({
@@ -18,15 +25,8 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="es" className="dark">
-      <body
-        className={`${inter.variable} ${orbitron.variable} bg-pitahaya-light-bg dark:bg-pitahaya-black text-pitahaya-light-text dark:text-white font-sans transition-colors duration-300`}
-      >
-        <ThemeProvider>
-          <Toaster position="top-right" />
-          {children}
-        </ThemeProvider>
-      </body>
+    <html lang="es">
+      <body className={`${bodyFont.variable} ${displayFont.variable} text-white`}>{children}</body>
     </html>
   );
 }

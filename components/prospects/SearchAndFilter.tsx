@@ -1,107 +1,101 @@
 "use client";
-import { motion } from "framer-motion";
-import { FiSearch } from "react-icons/fi";
-import Input from "@/components/ui/Input";
 
-interface Asesor {
-  id: string;
-  full_name: string | null;
-}
-
-interface Filters {
-  search: string;
-  estatus: string;
-  probabilidadMin: number | "";
-  asesorId: string;
+interface FiltersShape {
+  estatus?: string;
+  probabilidad?: string;
+  asesor?: string;
+  apartado?: string;
 }
 
 interface Props {
-  filters: Filters;
-  onChange: (filters: Filters) => void;
+  searchTerm?: string;
+  setSearchTerm?: (value: string) => void;
+  filters?: FiltersShape;
+  setFilters?: (filters: FiltersShape) => void;
+  asesores?: { id: string; full_name: string | null }[];
   showAsesorFilter?: boolean;
-  asesores?: Asesor[];
+  onNewProspect?: () => void;
 }
 
 export default function SearchAndFilter({
+  searchTerm = "",
+  setSearchTerm,
   filters,
-  onChange,
-  showAsesorFilter = false,
+  setFilters,
   asesores = [],
+  showAsesorFilter = true,
+  onNewProspect,
 }: Props) {
-  const handleChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
-  ) => {
-    const { name, value } = e.target;
-    onChange({
-      ...filters,
-      [name]: name === "probabilidadMin" ? (value === "" ? "" : parseInt(value)) : value,
-    });
-  };
-
   return (
-    <motion.div
-      initial={{ opacity: 0, y: -10 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="glass p-4 rounded-xl shadow-neumorph flex flex-wrap gap-4 items-end"
-    >
-      <div className="flex-1 min-w-50">
-        <Input
-          label="Buscar cliente"
-          name="search"
-          icon={<FiSearch />}
-          value={filters.search}
-          onChange={handleChange}
-          placeholder="Nombre del cliente..."
-        />
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-sm text-pitahaya-light-secondary dark:text-pitahaya-gray-300">Estatus</label>
-        <select
-          name="estatus"
-          value={filters.estatus}
-          onChange={handleChange}
-          className="w-full bg-white dark:bg-pitahaya-dark/60 border border-pitahaya-accent/20 rounded-lg py-2.5 px-4 text-pitahaya-light-text dark:text-white focus:outline-none focus:border-pitahaya-accent min-w-35"
-        >
-          <option value="">Todos</option>
-          <option value="Nuevo">Nuevo</option>
-          <option value="En seguimiento">En seguimiento</option>
-          <option value="Negociación">Negociación</option>
-          <option value="Cerrado">Cerrado</option>
-          <option value="Perdido">Perdido</option>
-        </select>
-      </div>
-      <div className="flex flex-col gap-1">
-        <label className="text-sm text-pitahaya-light-secondary dark:text-pitahaya-gray-300">Prob. mínima</label>
-        <select
-          name="probabilidadMin"
-          value={filters.probabilidadMin}
-          onChange={handleChange}
-          className="w-full bg-white dark:bg-pitahaya-dark/60 border border-pitahaya-accent/20 rounded-lg py-2.5 px-4 text-pitahaya-light-text dark:text-white focus:outline-none focus:border-pitahaya-accent min-w-30"
-        >
-          <option value="">Cualquiera</option>
-          <option value="25">≥ 25%</option>
-          <option value="50">≥ 50%</option>
-          <option value="75">≥ 75%</option>
-        </select>
-      </div>
-      {showAsesorFilter && (
-        <div className="flex flex-col gap-1">
-          <label className="text-sm text-pitahaya-light-secondary dark:text-pitahaya-gray-300">Asesor</label>
-          <select
-            name="asesorId"
-            value={filters.asesorId}
-            onChange={handleChange}
-            className="w-full bg-white dark:bg-pitahaya-dark/60 border border-pitahaya-accent/20 rounded-lg py-2.5 px-4 text-pitahaya-light-text dark:text-white focus:outline-none focus:border-pitahaya-accent min-w-40"
+    <div className="premium-panel w-full rounded-2xl p-5 md:p-6">
+      <div className="mb-4 flex items-center justify-between gap-3">
+        <h3 className="text-sm font-bold uppercase tracking-[0.2em] text-pitahaya-gray-300">Filtros de busqueda</h3>
+        {onNewProspect && (
+          <button
+            type="button"
+            onClick={onNewProspect}
+            className="rounded-lg bg-linear-to-r from-[#CF3790] to-[#B828E8] px-4 py-2 text-xs font-bold text-white shadow-[0_10px_28px_rgba(207,55,144,0.25)] transition-opacity hover:opacity-90"
           >
-            <option value="">Todos los asesores</option>
-            {asesores.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.full_name || "Sin nombre"}
-              </option>
-            ))}
+            + Nuevo Prospecto
+          </button>
+        )}
+      </div>
+      <div className="flex flex-col xl:flex-row items-end gap-5 w-full">
+        <div className="flex-1 w-full flex flex-col gap-2">
+          <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Buscar cliente</label>
+          <div className="relative">
+            <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
+              <svg className="h-5 w-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path></svg>
+            </div>
+            <input
+              type="text"
+              value={searchTerm || ""}
+              onChange={(e) => setSearchTerm?.(e.target.value)}
+              placeholder="Nombre del cliente..."
+              className="w-full rounded-xl border border-pitahaya-border bg-[#0A0612]/90 py-3 pl-11 pr-4 text-sm text-white transition-all focus:border-[#CF3790] focus:outline-none focus:ring-1 focus:ring-[#CF3790]"
+            />
+          </div>
+        </div>
+        <div className="w-full xl:w-56 flex flex-col gap-2">
+          <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Estatus</label>
+          <select value={filters?.estatus || ""} onChange={(e) => setFilters?.({ ...filters, estatus: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+            <option value="">Todos</option>
+            <option value="Nuevo">Nuevo</option>
+            <option value="En Contacto">En Contacto</option>
+            <option value="En seguimiento">En seguimiento</option>
+            <option value="Negociacion">Negociacion</option>
+            <option value="Cerrado">Cerrado</option>
+            <option value="Perdido">Perdido</option>
           </select>
         </div>
-      )}
-    </motion.div>
+        <div className="w-full xl:w-48 flex flex-col gap-2">
+          <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Prob. minima</label>
+          <select value={filters?.probabilidad || ""} onChange={(e) => setFilters?.({ ...filters, probabilidad: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+            <option value="">Cualquiera</option>
+            <option value="25">25% o mas</option>
+            <option value="50">50% o más</option>
+            <option value="75">75% o mas</option>
+          </select>
+        </div>
+        <div className="w-full xl:w-56 flex flex-col gap-2">
+          <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Apartado</label>
+          <select value={filters?.apartado || ""} onChange={(e) => setFilters?.({ ...filters, apartado: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+            <option value="">Todos</option>
+            <option value="apartados_activos">Apartados activos (pendientes de cierre)</option>
+          </select>
+        </div>
+        {showAsesorFilter && (
+          <div className="w-full xl:w-56 flex flex-col gap-2">
+            <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Asesor</label>
+            <select value={filters?.asesor || ""} onChange={(e) => setFilters?.({ ...filters, asesor: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+              <option value="">Todos los asesores</option>
+              {asesores.map((asesor) => (
+                <option key={asesor.id} value={asesor.id}>{asesor.full_name || "Sin nombre"}</option>
+              ))}
+            </select>
+          </div>
+        )}
+      </div>
+    </div>
   );
 }

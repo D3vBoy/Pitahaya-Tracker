@@ -21,8 +21,8 @@ export default function ConfirmDialog({
 }: Props) {
   return (
     <Modal open={open} onClose={onClose} title={title}>
-      <p className="text-pitahaya-gray-300 mb-6">{message}</p>
-      <div className="flex justify-end gap-3">
+      <p className="mb-6 text-pitahaya-gray-300">{message}</p>
+      <div className="flex justify-end gap-3 pt-2">
         <Button variant="secondary" onClick={onClose} disabled={loading}>
           Cancelar
         </Button>
@@ -30,7 +30,7 @@ export default function ConfirmDialog({
           variant="primary"
           onClick={onConfirm}
           disabled={loading}
-          className="bg-pitahaya-coral hover:bg-red-500"
+          className="bg-linear-to-r from-pitahaya-coral to-pitahaya-cerise hover:from-pitahaya-cerise hover:to-pitahaya-glowEnd"
         >
           {loading ? "Eliminando..." : "Eliminar"}
         </Button>
