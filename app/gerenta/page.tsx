@@ -212,8 +212,16 @@ export default function GerentaPage() {
                 whileTap={{ scale: 0.98 }}
                 onClick={async () => {
                   try {
-                    await exportAnalyticsPDF(filtered, filters.corte || null);
-                    toast.success("PDF generado correctamente");
+                    const result = await exportAnalyticsPDF(filtered, filters.corte || null);
+                    if (result.usedFallback) {
+                      toast.success("PDF generado con resumen alterno");
+                      if (result.warnings.length > 0) {
+                        // Keep details in console for debugging without blocking users.
+                        console.warn("PDF export warnings:", result.warnings);
+                      }
+                    } else {
+                      toast.success("PDF generado correctamente");
+                    }
                   } catch (error) {
                     toast.error(error instanceof Error ? error.message : "No se pudo generar el PDF");
                   }

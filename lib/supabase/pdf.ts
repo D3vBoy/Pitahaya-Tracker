@@ -18,6 +18,24 @@ interface AiSummaryResponse {
   error?: string;
 }
 
+interface ExportResult {
+  usedFallback: boolean;
+  aiIncluded: boolean;
+  warnings: string[];
+}
+
+interface SliceCaptureParams {
+  element: HTMLElement;
+  sourceY: number;
+  sourceHeight: number;
+  sourceWidth: number;
+  sourceAbsoluteTop: number;
+}
+
+const UNSUPPORTED_COLOR_FN_REPLACE = /(oklch|oklab|lab|lch)\([^)]*\)/gi;
+const UNSUPPORTED_COLOR_FN_TEST = /(oklch|oklab|lab|lch)\([^)]*\)/i;
+const SAFE_COLOR_FALLBACK = "rgba(17, 24, 39, 0.9)";
+
 function formatCurrency(value: number) {
   return value.toLocaleString("es-MX", {
     style: "currency",
@@ -26,12 +44,151 @@ function formatCurrency(value: number) {
   });
 }
 
+async function waitForAnalyticsReady() {
+  if (typeof document !== "undefined" && "fonts" in document) {
+    try {
+      await document.fonts.ready;
+    } catch {
+      // Ignore font loading errors and continue with capture.
+    }
+  }
+
+  await new Promise<void>((resolve) => {
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => resolve());
+    });
+  });
+}
+
+function sanitizeColorFunctions(value: string | null | undefined, fallback = SAFE_COLOR_FALLBACK) {
+  if (!value) return value || "";
+  return value.replace(UNSUPPORTED_COLOR_FN_REPLACE, fallback);
+}
+
+function applyCaptureSafeStyles(clonedDocument: Document, rootId: string) {
+  const root = clonedDocument.getElementById(rootId);
+  if (!root) return;
+
+  const htmlEl = clonedDocument.documentElement;
+  const htmlStyles = clonedDocument.defaultView?.getComputedStyle(htmlEl);
+  if (htmlStyles) {
+    for (let i = 0; i < htmlStyles.length; i += 1) {
+      const name = htmlStyles.item(i);
+      if (!name.startsWith("--")) continue;
+      const value = htmlStyles.getPropertyValue(name);
+      if (!UNSUPPORTED_COLOR_FN_TEST.test(value)) continue;
+      htmlEl.style.setProperty(name, sanitizeColorFunctions(value, SAFE_COLOR_FALLBACK));
+    }
+  }
+
+  const nodes = [root, ...Array.from(root.querySelectorAll<HTMLElement>("*"))];
+  const colorProps = [
+    "color",
+    "backgroundColor",
+    "borderTopColor",
+    "borderRightColor",
+    "borderBottomColor",
+    "borderLeftColor",
+    "outlineColor",
+    "textDecorationColor",
+    "caretColor",
+    "fill",
+    "stroke",
+  ] as const;
+
+  nodes.forEach((node) => {
+    const computed = clonedDocument.defaultView?.getComputedStyle(node);
+    if (!computed) return;
+
+    colorProps.forEach((prop) => {
+      const cssPropName = prop.replace(/[A-Z]/g, (match) => `-${match.toLowerCase()}`);
+      const raw = computed.getPropertyValue(cssPropName);
+      if (UNSUPPORTED_COLOR_FN_TEST.test(raw)) {
+        node.style.setProperty(cssPropName, sanitizeColorFunctions(raw, SAFE_COLOR_FALLBACK));
+      }
+    });
+
+    const boxShadow = computed.getPropertyValue("box-shadow");
+    if (UNSUPPORTED_COLOR_FN_TEST.test(boxShadow)) {
+      node.style.setProperty("box-shadow", "none");
+    }
+
+    const textShadow = computed.getPropertyValue("text-shadow");
+    if (UNSUPPORTED_COLOR_FN_TEST.test(textShadow)) {
+      node.style.setProperty("text-shadow", "none");
+    }
+
+    const bgImage = computed.getPropertyValue("background-image");
+    if (UNSUPPORTED_COLOR_FN_TEST.test(bgImage)) {
+      node.style.setProperty("background-image", "none");
+    }
+  });
+}
+
+async function captureSliceWithRetries({
+  element,
+  sourceY,
+  sourceHeight,
+  sourceWidth,
+  sourceAbsoluteTop,
+}: SliceCaptureParams) {
+  const scales = [2, 1.6, 1.3, 1];
+  let lastError: unknown = null;
+  const rootId = element.id || "analytics-export-container";
+
+  for (const scale of scales) {
+    try {
+      const canvas = await html2canvas(element, {
+        backgroundColor: "#0A0612",
+        scale,
+        useCORS: true,
+        logging: false,
+        width: sourceWidth,
+        height: sourceHeight,
+        x: 0,
+        y: sourceY,
+        scrollX: 0,
+        scrollY: -window.scrollY,
+        windowWidth: sourceWidth,
+        windowHeight: sourceHeight,
+        onclone: (clonedDocument) => {
+          applyCaptureSafeStyles(clonedDocument, rootId);
+        },
+      });
+
+      if (canvas.width <= 0 || canvas.height <= 0) {
+        throw new Error("El segmento capturado no tiene dimensiones validas.");
+      }
+
+      return canvas;
+    } catch (error) {
+      lastError = error;
+
+      // Retry with lower scale to reduce memory pressure.
+      await new Promise((resolve) => setTimeout(resolve, 40));
+      if (sourceAbsoluteTop > 0) {
+        window.scrollTo({ top: Math.max(0, sourceAbsoluteTop - 16), behavior: "auto" });
+      }
+    }
+  }
+
+  throw new Error(
+    lastError instanceof Error
+      ? `No fue posible capturar el dashboard: ${lastError.message}`
+      : "No fue posible capturar el dashboard."
+  );
+}
+
 async function getAiSummary(prospects: ProspectForPdf[], corte: string | null): Promise<string | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 12000);
+
   try {
     const response = await fetch("/api/analytics/ai-summary", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prospects, corte }),
+      signal: controller.signal,
     });
 
     if (!response.ok) return null;
@@ -41,11 +198,81 @@ async function getAiSummary(prospects: ProspectForPdf[], corte: string | null): 
     return data.summary;
   } catch {
     return null;
+  } finally {
+    clearTimeout(timeout);
   }
 }
 
-export async function exportAnalyticsPDF(prospects: ProspectForPdf[] = [], corte: string | null = null) {
+function addFallbackExecutiveSummary(
+  pdf: jsPDF,
+  prospects: ProspectForPdf[],
+  corte: string | null,
+  pageWidth: number,
+  pageHeight: number,
+  marginX: number
+) {
+  const activos = prospects.filter((p) => p.estatus_general !== "Cerrado" && p.estatus_general !== "Perdido");
+  const apartadosActivos = activos.filter((p) => p.apartado_realizado).length;
+  const montoTotal = prospects.reduce((acc, p) => acc + (p.monto_total || 0), 0);
+  const montoActivo = activos.reduce((acc, p) => acc + (p.monto_total || 0), 0);
+
+  const top = [...activos]
+    .sort((a, b) => (b.probabilidad_cierre || 0) - (a.probabilidad_cierre || 0))
+    .slice(0, 8);
+
+  pdf.addPage();
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(15);
+  pdf.text("Resumen ejecutivo alterno", marginX, 16);
+
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(10);
+
+  const lines = [
+    `Corte aplicado: ${corte || "General"}`,
+    `Prospectos totales: ${prospects.length}`,
+    `Leads activos: ${activos.length}`,
+    `Apartados activos: ${apartadosActivos}`,
+    `Pipeline total: ${formatCurrency(montoTotal)}`,
+    `Pipeline activo: ${formatCurrency(montoActivo)}`,
+    "",
+    "Top oportunidades por probabilidad:",
+  ];
+
+  let y = 24;
+  lines.forEach((line) => {
+    pdf.text(line, marginX, y);
+    y += 5;
+  });
+
+  top.forEach((p, index) => {
+    if (y > pageHeight - 16) {
+      pdf.addPage();
+      y = 16;
+    }
+
+    const row = `${index + 1}. ${p.nombre_cliente || "Sin nombre"} | Prob: ${p.probabilidad_cierre ?? 0}% | Monto: ${formatCurrency(p.monto_total || 0)} | Asesor: ${p.profiles?.full_name || "Sin asesor"}`;
+    const wrapped = pdf.splitTextToSize(row, pageWidth - marginX * 2);
+    wrapped.forEach((segment: string) => {
+      if (y > pageHeight - 16) {
+        pdf.addPage();
+        y = 16;
+      }
+      pdf.text(segment, marginX, y);
+      y += 5;
+    });
+  });
+}
+
+export async function exportAnalyticsPDF(
+  prospects: ProspectForPdf[] = [],
+  corte: string | null = null
+): Promise<ExportResult> {
+  const warnings: string[] = [];
+
   try {
+    await waitForAnalyticsReady();
+
     const pdf = new jsPDF("p", "mm", "a4");
     const pageWidth = pdf.internal.pageSize.getWidth();
     const pageHeight = pdf.internal.pageSize.getHeight();
@@ -74,65 +301,72 @@ export async function exportAnalyticsPDF(prospects: ProspectForPdf[] = [], corte
       30
     );
 
+    let usedFallback = false;
     const element = document.getElementById("analytics-export-container");
+
     if (!element) {
-      throw new Error("No se encontro el contenedor de analiticas para exportar.");
-    }
+      usedFallback = true;
+      warnings.push("No se encontro el contenedor visual de analiticas. Se genero resumen alterno.");
+      addFallbackExecutiveSummary(pdf, prospects, corte, pageWidth, pageHeight, marginX);
+    } else {
+      try {
+        const sourceWidth = Math.max(1, Math.ceil(element.scrollWidth));
+        const sourceHeightTotal = Math.max(1, Math.ceil(element.scrollHeight));
+        const sourceAbsoluteTop = Math.max(0, Math.floor(element.getBoundingClientRect().top + window.scrollY));
 
-    const canvas = await html2canvas(element, {
-      backgroundColor: "#0A0612",
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      windowWidth: element.scrollWidth,
-      windowHeight: element.scrollHeight,
-    });
+        if (sourceWidth <= 1 || sourceHeightTotal <= 1) {
+          throw new Error("El dashboard no tiene dimensiones suficientes para exportar.");
+        }
 
-    const imgWidthMm = pageWidth - marginX * 2;
-    const pxPerMm = canvas.width / imgWidthMm;
+        const imgWidthMm = pageWidth - marginX * 2;
+        const mmPerPx = imgWidthMm / sourceWidth;
 
-    let sourceY = 0;
-    let firstPage = true;
+        let sourceY = 0;
+        let firstPage = true;
 
-    while (sourceY < canvas.height) {
-      const targetTop = firstPage ? 36 : 10;
-      const targetHeightMm = pageHeight - targetTop - 12;
-      const sourceSliceHeight = Math.min(canvas.height - sourceY, Math.floor(targetHeightMm * pxPerMm));
+        while (sourceY < sourceHeightTotal) {
+          const targetTop = firstPage ? 36 : 10;
+          const targetHeightMm = pageHeight - targetTop - 12;
+          const maxSourceSliceHeight = Math.max(1, Math.floor(targetHeightMm / mmPerPx));
+          const sourceSliceHeight = Math.min(sourceHeightTotal - sourceY, maxSourceSliceHeight);
 
-      const sliceCanvas = document.createElement("canvas");
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sourceSliceHeight;
+          if (sourceSliceHeight <= 0) {
+            throw new Error("No se pudo calcular el alto de una pagina del PDF.");
+          }
 
-      const ctx = sliceCanvas.getContext("2d");
-      if (!ctx) {
-        throw new Error("No fue posible procesar la imagen para el PDF.");
-      }
+          const sliceCanvas = await captureSliceWithRetries({
+            element,
+            sourceY,
+            sourceHeight: sourceSliceHeight,
+            sourceWidth,
+            sourceAbsoluteTop,
+          });
 
-      ctx.drawImage(
-        canvas,
-        0,
-        sourceY,
-        canvas.width,
-        sourceSliceHeight,
-        0,
-        0,
-        canvas.width,
-        sourceSliceHeight
-      );
+          const sliceData = sliceCanvas.toDataURL("image/png", 0.95);
+          const renderHeightMm = sliceCanvas.height * (imgWidthMm / sliceCanvas.width);
+          pdf.addImage(sliceData, "PNG", marginX, targetTop, imgWidthMm, renderHeightMm, undefined, "FAST");
 
-      const sliceData = sliceCanvas.toDataURL("image/png");
-      const renderHeightMm = sourceSliceHeight / pxPerMm;
-      pdf.addImage(sliceData, "PNG", marginX, targetTop, imgWidthMm, renderHeightMm, undefined, "FAST");
-
-      sourceY += sourceSliceHeight;
-      firstPage = false;
-      if (sourceY < canvas.height) {
-        pdf.addPage();
+          sourceY += sourceSliceHeight;
+          firstPage = false;
+          if (sourceY < sourceHeightTotal) {
+            pdf.addPage();
+          }
+        }
+      } catch (captureError) {
+        usedFallback = true;
+        warnings.push(
+          captureError instanceof Error
+            ? `Fallo captura visual: ${captureError.message}`
+            : "Fallo captura visual del dashboard."
+        );
+        addFallbackExecutiveSummary(pdf, prospects, corte, pageWidth, pageHeight, marginX);
       }
     }
 
     const aiSummary = await getAiSummary(prospects, corte);
+    let aiIncluded = false;
     if (aiSummary) {
+      aiIncluded = true;
       pdf.addPage();
       pdf.setFont("helvetica", "bold");
       pdf.setFontSize(15);
@@ -167,6 +401,7 @@ export async function exportAnalyticsPDF(prospects: ProspectForPdf[] = [], corte
     }
 
     pdf.save(`pitahaya-reporte-${new Date().toISOString().slice(0, 10)}.pdf`);
+    return { usedFallback, aiIncluded, warnings };
   } catch (error) {
     throw new Error(
       error instanceof Error

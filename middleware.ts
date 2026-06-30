@@ -3,6 +3,12 @@ import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
+
+  // Never gate internal API routes with dashboard auth redirects.
+  if (pathname.startsWith("/api")) {
+    return NextResponse.next();
+  }
+
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
 
