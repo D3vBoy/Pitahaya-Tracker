@@ -5,6 +5,7 @@ interface FiltersShape {
   probabilidad?: string;
   asesor?: string;
   apartado?: string;
+  corte?: string;
 }
 
 interface Props {
@@ -14,6 +15,8 @@ interface Props {
   setFilters?: (filters: FiltersShape) => void;
   asesores?: { id: string; full_name: string | null }[];
   showAsesorFilter?: boolean;
+  showCorteFilter?: boolean;
+  corteOptions?: Array<{ value: string; label: string }>;
   onNewProspect?: () => void;
 }
 
@@ -24,6 +27,8 @@ export default function SearchAndFilter({
   setFilters,
   asesores = [],
   showAsesorFilter = true,
+  showCorteFilter = false,
+  corteOptions = [],
   onNewProspect,
 }: Props) {
   return (
@@ -84,6 +89,17 @@ export default function SearchAndFilter({
             <option value="apartados_activos">Apartados activos (pendientes de cierre)</option>
           </select>
         </div>
+        {showCorteFilter && (
+          <div className="w-full xl:w-56 flex flex-col gap-2">
+            <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Corte (mes)</label>
+            <select value={filters?.corte || ""} onChange={(e) => setFilters?.({ ...filters, corte: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+              <option value="">Todos los cortes</option>
+              {corteOptions.map((opt) => (
+                <option key={opt.value} value={opt.value}>{opt.label}</option>
+              ))}
+            </select>
+          </div>
+        )}
         {showAsesorFilter && (
           <div className="w-full xl:w-56 flex flex-col gap-2">
             <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Asesor</label>

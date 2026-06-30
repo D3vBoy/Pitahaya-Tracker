@@ -193,6 +193,58 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
     };
   }, [prospects, asesores]);
 
+  const monthlyCutData = useMemo(() => {
+    const formatter = new Intl.DateTimeFormat("es-MX", { month: "short", year: "2-digit" });
+    const map = new Map<string, { label: string; activos: number; apartadosActivos: number }>();
+
+    prospects.forEach((p) => {
+      const ref = p.proximo_seguimiento || p.fecha_cierre || null;
+      if (!ref) return;
+      const date = new Date(ref);
+      if (Number.isNaN(date.getTime())) return;
+
+      const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+      if (!map.has(key)) {
+        map.set(key, {
+          label: formatter.format(new Date(date.getFullYear(), date.getMonth(), 1)),
+          activos: 0,
+          apartadosActivos: 0,
+        });
+      }
+
+      const bucket = map.get(key);
+      if (!bucket) return;
+      const activo = p.estatus_general !== "Cerrado" && p.estatus_general !== "Perdido";
+      if (activo) {
+        bucket.activos += 1;
+        if (p.apartado_realizado) bucket.apartadosActivos += 1;
+      }
+    });
+
+    const sorted = Array.from(map.entries())
+      .sort((a, b) => a[0].localeCompare(b[0]))
+      .slice(-8)
+      .map(([, value]) => value);
+
+    return {
+      labels: sorted.map((s) => s.label),
+      datasets: [
+        {
+          label: "Leads activos",
+          data: sorted.map((s) => s.activos),
+          backgroundColor: "#B828E8",
+          borderRadius: 8,
+        },
+        {
+          label: "Apartados activos",
+          data: sorted.map((s) => s.apartadosActivos),
+          backgroundColor: "#F38D62",
+          borderRadius: 8,
+        },
+      ],
+    };
+  }, [prospects]);
+
   const chartOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -363,6 +415,18 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
             </div>
           ) : (
             <p className="text-pitahaya-gray-500 text-center py-10">No hay asesores registrados</p>
+          )}
+        </div>
+
+        <div className="premium-panel h-105 rounded-3xl p-6 shadow-glass">
+          <h3 className="text-lg font-semibold text-white mb-4">Corte mensual de seguimientos</h3>
+          <p className="mb-4 text-sm text-pitahaya-gray-500">Comparativo por mes de leads activos vs apartados activos</p>
+          {monthlyCutData.labels.length > 0 ? (
+            <div className="h-78">
+              <Bar data={monthlyCutData} options={chartOptions} />
+            </div>
+          ) : (
+            <p className="text-pitahaya-gray-500 text-center py-10">Aun no hay fechas suficientes para generar cortes mensuales.</p>
           )}
         </div>
       </motion.div>

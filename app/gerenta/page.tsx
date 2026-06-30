@@ -5,6 +5,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { createClientSupabase } from "@/lib/supabase/client";
 import { motion } from "framer-motion";
 import { FiDownload } from "react-icons/fi";
+import toast from "react-hot-toast";
 import Modal from "@/components/ui/Modal";
 import ProspectForm from "@/components/prospects/ProspectForm";
 import SearchAndFilter from "@/components/prospects/SearchAndFilter";
@@ -59,7 +60,17 @@ export default function GerentaPage() {
     probabilidadMin: "" as number | "",
     asesorId: "",
     apartado: "",
+    corte: "",
   });
+
+  const getCorteMonth = (prospect: ProspectWithAsesor) => {
+    const referenceDate =
+      prospect.proximo_seguimiento || prospect.fecha_apartado || prospect.fecha_primer_contacto || null;
+    if (!referenceDate) return "";
+    const date = new Date(referenceDate);
+    if (Number.isNaN(date.getTime())) return "";
+    return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+  };
 
   const fetchProspects = useCallback(async () => {
     const { data } = await supabase
@@ -94,11 +105,34 @@ export default function GerentaPage() {
             (filters.apartado === "apartados_activos" &&
               p.apartado_realizado &&
               p.estatus_general !== "Cerrado" &&
-              p.estatus_general !== "Perdido"))
+              p.estatus_general !== "Perdido")) &&
+          (!filters.corte || getCorteMonth(p) === filters.corte)
         );
       }),
     [prospects, filters]
   );
+
+  const corteOptions = useMemo(() => {
+    const monthFormatter = new Intl.DateTimeFormat("es-MX", { month: "long", year: "numeric" });
+    const unique = new Set<string>();
+
+    prospects.forEach((p) => {
+      const month = getCorteMonth(p);
+      if (month) unique.add(month);
+    });
+
+    return Array.from(unique)
+      .sort((a, b) => b.localeCompare(a))
+      .map((value) => {
+        const [year, month] = value.split("-").map(Number);
+        const labelDate = new Date(year, (month || 1) - 1, 1);
+        const label = monthFormatter.format(labelDate);
+        return {
+          value,
+          label: `Corte ${label.charAt(0).toUpperCase()}${label.slice(1)}`,
+        };
+      });
+  }, [prospects]);
 
   const pipelineData = useMemo(
     () => [...filtered].sort((a, b) => (b.probabilidad_cierre || 0) - (a.probabilidad_cierre || 0)),
@@ -114,8 +148,9 @@ export default function GerentaPage() {
     probabilidad: filters.probabilidadMin === "" ? "" : String(filters.probabilidadMin),
     asesor: filters.asesorId,
     apartado: filters.apartado,
+    corte: filters.corte,
   };
-  const setUiFilters = (next: { estatus?: string; probabilidad?: string; asesor?: string; apartado?: string }) => {
+  const setUiFilters = (next: { estatus?: string; probabilidad?: string; asesor?: string; apartado?: string; corte?: string }) => {
     setFilters((prev) => ({
       ...prev,
       estatus: next.estatus ?? prev.estatus,
@@ -127,6 +162,7 @@ export default function GerentaPage() {
             : Number.parseInt(next.probabilidad, 10),
       asesorId: next.asesor ?? prev.asesorId,
       apartado: next.apartado ?? prev.apartado,
+          corte: next.corte ?? prev.corte,
     }));
   };
 
@@ -174,7 +210,14 @@ export default function GerentaPage() {
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
-                onClick={() => exportAnalyticsPDF()}
+                onClick={async () => {
+                  try {
+                    await exportAnalyticsPDF(filtered, filters.corte || null);
+                    toast.success("PDF generado correctamente");
+                  } catch (error) {
+                    toast.error(error instanceof Error ? error.message : "No se pudo generar el PDF");
+                  }
+                }}
                 className="bg-linear-to-r from-[#CF3790] to-[#B828E8] text-white h-11 px-5 rounded-xl flex items-center gap-2 font-semibold text-sm shadow-lg shadow-[#CF3790]/20 hover:shadow-[#CF3790]/40 transition-all"
               >
                 <FiDownload size={16} /> Exportar PDF
@@ -191,6 +234,8 @@ export default function GerentaPage() {
               setFilters={setUiFilters}
               asesores={asesores}
               showAsesorFilter
+              showCorteFilter
+              corteOptions={corteOptions}
               onNewProspect={() => {
                 setEditingProspect(null);
                 setModalOpen(true);
