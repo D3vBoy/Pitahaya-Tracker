@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { createClientSupabase } from "@/lib/supabase/client";
 import toast from "react-hot-toast";
+import type { PostgrestError } from "@supabase/supabase-js";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
 
@@ -63,6 +64,45 @@ const createEmptyForm = (prospect?: NullablePartialProspectData | null): Prospec
   observaciones: prospect?.observaciones ?? "",
 });
 
+const toNullableNumber = (value: number | "") => (value === "" ? null : value);
+const toNullableDate = (value: string) => (value.trim() === "" ? null : value);
+const toNullableText = (value: string) => {
+  const trimmed = value.trim();
+  return trimmed === "" ? null : trimmed;
+};
+
+function normalizeProspectPayload(form: ProspectData, userId: string) {
+  return {
+    user_id: userId,
+    nombre_cliente: form.nombre_cliente.trim(),
+    fecha_primer_contacto: form.fecha_primer_contacto,
+    fecha_primer_zoom: toNullableDate(form.fecha_primer_zoom),
+    fecha_segundo_zoom: toNullableDate(form.fecha_segundo_zoom),
+    metros_cuadrados_tentativos: toNullableNumber(form.metros_cuadrados_tentativos),
+    monto_total: toNullableNumber(form.monto_total),
+    plan_financiamiento: toNullableText(form.plan_financiamiento),
+    estatus_enganche: form.estatus_enganche,
+    estatus_general: form.estatus_general,
+    proxima_accion: toNullableText(form.proxima_accion),
+    proximo_seguimiento: toNullableDate(form.proximo_seguimiento),
+    probabilidad_cierre: toNullableNumber(form.probabilidad_cierre),
+    apartado_realizado: form.apartado_realizado,
+    fecha_apartado: toNullableDate(form.fecha_apartado),
+    monto_apartado: toNullableNumber(form.monto_apartado),
+    fecha_enganche: toNullableDate(form.fecha_enganche),
+    firma_pcv: toNullableDate(form.firma_pcv),
+    fecha_cierre: toNullableDate(form.fecha_cierre),
+    observaciones: toNullableText(form.observaciones),
+  };
+}
+
+function buildSupabaseErrorMessage(error: PostgrestError) {
+  if (error.code === "42501") {
+    return "No tienes permisos para crear o editar este prospecto. Revisa las politicas RLS de Supabase para la tabla prospects.";
+  }
+  return error.message;
+}
+
 export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta = false }: Props) {
   const supabase = createClientSupabase();
   const [loading, setLoading] = useState(false);
@@ -117,13 +157,19 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
         userId = user.id;
       }
 
-      const payload = { ...form, user_id: userId };
+      const payload = normalizeProspectPayload(form, userId);
+
+      if (!payload.nombre_cliente) {
+        throw new Error("El nombre del cliente es obligatorio");
+      }
 
       if (prospect?.id) {
-        await supabase.from("prospects").update(payload).eq("id", prospect.id);
+        const { error } = await supabase.from("prospects").update(payload).eq("id", prospect.id);
+        if (error) throw new Error(buildSupabaseErrorMessage(error));
         toast.success("Prospecto actualizado");
       } else {
-        await supabase.from("prospects").insert(payload);
+        const { error } = await supabase.from("prospects").insert(payload);
+        if (error) throw new Error(buildSupabaseErrorMessage(error));
         toast.success("Prospecto creado");
       }
 
@@ -140,7 +186,8 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
     if (!prospect?.id) return;
     setDeleting(true);
     try {
-      await supabase.from("prospects").delete().eq("id", prospect.id);
+      const { error } = await supabase.from("prospects").delete().eq("id", prospect.id);
+      if (error) throw new Error(buildSupabaseErrorMessage(error));
       toast.success("Prospecto eliminado");
       onSuccess();
       onClose();

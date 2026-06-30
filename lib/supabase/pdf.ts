@@ -1,5 +1,5 @@
 import jsPDF from "jspdf";
-import html2canvas from "html2canvas";
+import html2canvas from "html2canvas-pro";
 
 interface ProspectForPdf {
   id: string;
@@ -320,13 +320,16 @@ export async function exportAnalyticsPDF(
 
         const imgWidthMm = pageWidth - marginX * 2;
         const mmPerPx = imgWidthMm / sourceWidth;
+        const targetTopMm = 36;
+        const availableHeightMm = pageHeight - targetTopMm - 12;
+
+        const captureSlices: Array<{ dataUrl: string; heightPx: number; widthPx: number }> = [];
+        let totalRenderHeightMm = 0;
 
         let sourceY = 0;
-        let firstPage = true;
 
         while (sourceY < sourceHeightTotal) {
-          const targetTop = firstPage ? 36 : 10;
-          const targetHeightMm = pageHeight - targetTop - 12;
+          const targetHeightMm = pageHeight - 10 - 12;
           const maxSourceSliceHeight = Math.max(1, Math.floor(targetHeightMm / mmPerPx));
           const sourceSliceHeight = Math.min(sourceHeightTotal - sourceY, maxSourceSliceHeight);
 
@@ -342,15 +345,29 @@ export async function exportAnalyticsPDF(
             sourceAbsoluteTop,
           });
 
-          const sliceData = sliceCanvas.toDataURL("image/png", 0.95);
           const renderHeightMm = sliceCanvas.height * (imgWidthMm / sliceCanvas.width);
-          pdf.addImage(sliceData, "PNG", marginX, targetTop, imgWidthMm, renderHeightMm, undefined, "FAST");
+          totalRenderHeightMm += renderHeightMm;
+          captureSlices.push({
+            dataUrl: sliceCanvas.toDataURL("image/png", 0.95),
+            heightPx: sliceCanvas.height,
+            widthPx: sliceCanvas.width,
+          });
 
           sourceY += sourceSliceHeight;
-          firstPage = false;
-          if (sourceY < sourceHeightTotal) {
-            pdf.addPage();
-          }
+        }
+
+        const fitScale = totalRenderHeightMm > availableHeightMm ? availableHeightMm / totalRenderHeightMm : 1;
+        let currentTopMm = targetTopMm;
+
+        captureSlices.forEach((slice) => {
+          const rawHeightMm = slice.heightPx * (imgWidthMm / slice.widthPx);
+          const finalHeightMm = rawHeightMm * fitScale;
+          pdf.addImage(slice.dataUrl, "PNG", marginX, currentTopMm, imgWidthMm, finalHeightMm, undefined, "FAST");
+          currentTopMm += finalHeightMm;
+        });
+
+        if (fitScale < 1) {
+          warnings.push("La captura visual fue escalada para ajustarse a una sola hoja.");
         }
       } catch (captureError) {
         usedFallback = true;
