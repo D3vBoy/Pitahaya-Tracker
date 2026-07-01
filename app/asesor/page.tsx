@@ -2,7 +2,6 @@
 export const dynamic = "force-dynamic";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { createClientSupabase } from "@/lib/supabase/client";
-import toast from "react-hot-toast";
 import Modal from "@/components/ui/Modal";
 import ProspectForm from "@/components/prospects/ProspectForm";
 import SearchAndFilter from "@/components/prospects/SearchAndFilter";
@@ -34,6 +33,7 @@ export default function AsesorPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<Partial<Prospect> | null>(null);
+  const [pendingInvalidProspect, setPendingInvalidProspect] = useState<Prospect | null>(null);
   const [forcedValidationShown, setForcedValidationShown] = useState(false);
   const [tab, setTab] = useState<"list" | "analytics">("list");
   const [filters, setFilters] = useState({
@@ -69,13 +69,18 @@ export default function AsesorPage() {
     const timer = window.setTimeout(() => {
       setForcedValidationShown(true);
       setTab("list");
-      setEditingProspect(invalidProspect);
-      setModalOpen(true);
-      toast.error("Debes completar campos obligatorios en este prospecto antes de continuar.");
+      setPendingInvalidProspect(invalidProspect);
     }, 0);
 
     return () => window.clearTimeout(timer);
   }, [forcedValidationShown, loading, prospects]);
+
+  const handleForceCompleteRequiredFields = () => {
+    if (!pendingInvalidProspect) return;
+    setEditingProspect(pendingInvalidProspect);
+    setPendingInvalidProspect(null);
+    setModalOpen(true);
+  };
 
   const filtered = useMemo(
     () =>
@@ -191,6 +196,27 @@ export default function AsesorPage() {
           onClose={() => setModalOpen(false)}
           onSuccess={fetchProspects}
         />
+      </Modal>
+
+      <Modal
+        open={Boolean(pendingInvalidProspect)}
+        onClose={handleForceCompleteRequiredFields}
+        title="Usuarios con campos faltantes"
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-pitahaya-gray-300">
+            Detectamos prospectos con campos obligatorios vacíos. Te llevaremos al registro para completarlo ahora.
+          </p>
+          <div className="flex justify-end">
+            <button
+              type="button"
+              onClick={handleForceCompleteRequiredFields}
+              className="rounded-xl bg-linear-to-r from-[#CF3790] to-[#B828E8] px-4 py-2 text-sm font-semibold text-white"
+            >
+              Ir a completar
+            </button>
+          </div>
+        </div>
       </Modal>
     </div>
   );

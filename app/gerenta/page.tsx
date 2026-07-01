@@ -15,7 +15,7 @@ import ActionCenterDashboard from "@/components/prospects/ActionCenterDashboard"
 import { exportAnalyticsPDF } from "@/lib/supabase/pdf";
 import KPICard from "@/components/ui/KPICard";
 import TabsNavigation from "@/components/ui/TabsNavigation";
-import { hasApartadoHistory, hasMissingRequiredProspectFields, isActiveStatus } from "@/lib/prospects/status";
+import { hasApartadoHistory, isActiveStatus } from "@/lib/prospects/status";
 
 interface ProspectWithAsesor {
   id: string;
@@ -53,7 +53,6 @@ export default function GerentaPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<Partial<ProspectWithAsesor> | null>(null);
-  const [forcedValidationShown, setForcedValidationShown] = useState(false);
   const [asesores, setAsesores] = useState<Asesor[]>([]);
   const [tab, setTab] = useState<"action" | "pipeline" | "analytics">("action");
   const [filters, setFilters] = useState({
@@ -93,22 +92,6 @@ export default function GerentaPage() {
     void fetchProspects();
     void fetchAsesores();
   }, [fetchProspects, fetchAsesores]);
-
-  useEffect(() => {
-    if (loading || forcedValidationShown) return;
-    const invalidProspect = prospects.find((p) => hasMissingRequiredProspectFields(p));
-    if (!invalidProspect) return;
-
-    const timer = window.setTimeout(() => {
-      setForcedValidationShown(true);
-      setTab("pipeline");
-      setEditingProspect(invalidProspect);
-      setModalOpen(true);
-      toast.error("Hay prospectos con campos obligatorios vacios. Corrige este registro ahora.");
-    }, 0);
-
-    return () => window.clearTimeout(timer);
-  }, [forcedValidationShown, loading, prospects]);
 
   const filtered = useMemo(
     () =>
