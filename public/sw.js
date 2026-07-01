@@ -1,5 +1,13 @@
-const CACHE_VERSION = "pitahaya-pwa-v1";
-const PRECACHE_URLS = ["/", "/pitahaya.webmanifest", "/api/pwa-icon/192", "/api/pwa-icon/512"];
+const CACHE_VERSION = "pitahaya-pwa-v3";
+const PRECACHE_URLS = ["/pitahaya.webmanifest", "/api/pwa-icon/192", "/api/pwa-icon/512"];
+
+function isNextAsset(url) {
+  return url.pathname.startsWith("/_next/");
+}
+
+function isManifestRequest(url) {
+  return url.pathname === "/pitahaya.webmanifest" || url.pathname === "/manifest.webmanifest";
+}
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
@@ -23,18 +31,33 @@ self.addEventListener("fetch", (event) => {
   const url = new URL(request.url);
   if (url.origin !== self.location.origin) return;
 
+  if (isNextAsset(url)) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
+
+  if (isManifestRequest(url)) {
+    event.respondWith(fetch(request, { cache: "no-store" }));
+    return;
+  }
+
   if (request.mode === "navigate") {
     event.respondWith(
       fetch(request)
         .then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+          }
           return response;
         })
         .catch(async () => {
           const cached = await caches.match(request);
           if (cached) return cached;
-          return caches.match("/");
+          return new Response("Sin conexion", {
+            status: 503,
+            headers: { "Content-Type": "text/plain; charset=utf-8" },
+          });
         })
     );
     return;
@@ -47,8 +70,10 @@ self.addEventListener("fetch", (event) => {
       caches.match(request).then((cached) => {
         if (cached) return cached;
         return fetch(request).then((response) => {
-          const copy = response.clone();
-          caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+          if (response.ok) {
+            const copy = response.clone();
+            caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+          }
           return response;
         });
       })
@@ -59,8 +84,10 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(
     fetch(request)
       .then((response) => {
-        const copy = response.clone();
-        caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+        if (response.ok) {
+          const copy = response.clone();
+          caches.open(CACHE_VERSION).then((cache) => cache.put(request, copy));
+        }
         return response;
       })
       .catch(() => caches.match(request))
