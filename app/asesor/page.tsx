@@ -2,6 +2,7 @@
 export const dynamic = "force-dynamic";
 import { useCallback, useEffect, useState, useMemo } from "react";
 import { createClientSupabase } from "@/lib/supabase/client";
+import toast from "react-hot-toast";
 import Modal from "@/components/ui/Modal";
 import ProspectForm from "@/components/prospects/ProspectForm";
 import SearchAndFilter from "@/components/prospects/SearchAndFilter";
@@ -9,7 +10,7 @@ import ProspectsTable from "@/components/prospects/ProspectsTable";
 import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
 import KPICard from "@/components/ui/KPICard";
 import TabsNavigation from "@/components/ui/TabsNavigation";
-import { isActiveStatus } from "@/lib/prospects/status";
+import { hasApartadoHistory, hasMissingRequiredProspectFields, isActiveStatus } from "@/lib/prospects/status";
 
 interface Prospect {
   id: string;
@@ -21,6 +22,9 @@ interface Prospect {
   proxima_accion: string | null;
   monto_total: number | null;
   apartado_realizado: boolean;
+  fecha_apartado: string | null;
+  fecha_enganche: string | null;
+  firma_pcv: string | null;
   user_id: string;
 }
 
@@ -30,6 +34,7 @@ export default function AsesorPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<Partial<Prospect> | null>(null);
+  const [forcedValidationShown, setForcedValidationShown] = useState(false);
   const [tab, setTab] = useState<"list" | "analytics">("list");
   const [filters, setFilters] = useState({
     search: "",
@@ -56,6 +61,22 @@ export default function AsesorPage() {
     void fetchProspects();
   }, [fetchProspects]);
 
+  useEffect(() => {
+    if (loading || forcedValidationShown) return;
+    const invalidProspect = prospects.find((p) => hasMissingRequiredProspectFields(p));
+    if (!invalidProspect) return;
+
+    const timer = window.setTimeout(() => {
+      setForcedValidationShown(true);
+      setTab("list");
+      setEditingProspect(invalidProspect);
+      setModalOpen(true);
+      toast.error("Debes completar campos obligatorios en este prospecto antes de continuar.");
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [forcedValidationShown, loading, prospects]);
+
   const filtered = useMemo(
     () =>
       prospects.filter((p) => {
@@ -66,9 +87,8 @@ export default function AsesorPage() {
           (p.probabilidad_cierre !== null && p.probabilidad_cierre >= filters.probabilidadMin);
         const apartadoMatch =
           !filters.apartado ||
-          (filters.apartado === "apartados_activos" &&
-            p.apartado_realizado &&
-            isActiveStatus(p.estatus_general));
+          ((filters.apartado === "apartado_historial" || filters.apartado === "apartados_activos") &&
+            hasApartadoHistory(p));
         return nameMatch && estatusMatch && probMatch && apartadoMatch;
       }),
     [prospects, filters]

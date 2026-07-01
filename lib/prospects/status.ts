@@ -43,3 +43,43 @@ export function isClosedStatus(status: string | null | undefined): boolean {
 export function isActiveStatus(status: string | null | undefined): boolean {
   return !isClosedStatus(status);
 }
+
+const APARTADO_HISTORY_STATUSES = new Set<string>([
+  "Apartado realizado. Integrando documentación.",
+  "Contrato en revisión.",
+  "Pendiente de firma de contrato.",
+  "Enganche realizado.",
+  "Venta formalizada.",
+  "Venta pausada. (Observaciones)",
+  "Venta caída. Motivo en observaciones.",
+]);
+
+export function hasApartadoHistory(input: {
+  apartado_realizado?: boolean | null;
+  estatus_general?: string | null;
+  fecha_apartado?: string | null;
+  fecha_enganche?: string | null;
+  firma_pcv?: string | null;
+}): boolean {
+  const status = (input.estatus_general || "").trim();
+
+  return Boolean(
+    input.apartado_realizado ||
+    input.fecha_apartado ||
+    input.fecha_enganche ||
+    input.firma_pcv ||
+    APARTADO_HISTORY_STATUSES.has(status)
+  );
+}
+
+export function hasMissingRequiredProspectFields(input: {
+  nombre_cliente?: string | null;
+  fecha_primer_contacto?: string | null;
+  estatus_general?: string | null;
+}): boolean {
+  const name = (input.nombre_cliente || "").trim();
+  const firstContact = (input.fecha_primer_contacto || "").trim();
+  const status = (input.estatus_general || "").trim();
+
+  return !name || !firstContact || !isAllowedStatus(status);
+}

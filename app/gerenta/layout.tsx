@@ -8,7 +8,10 @@ export default function GerentaLayout({ children }: { children: React.ReactNode 
   const supabase = createClientSupabase();
 
   const handleLogout = async () => {
-    await supabase.auth.signOut();
+    const { error } = await supabase.auth.signOut({ scope: "local" });
+    if (error) {
+      console.warn("No se pudo cerrar sesion global, se limpio la sesion local.", error.message);
+    }
     router.push("/login");
   };
 

@@ -66,3 +66,13 @@ a {
   width: 100%;
   max-width: 1600px;
 }
+
+.pitahaya-select {
+  color-scheme: dark;
+}
+
+.pitahaya-select option,
+.pitahaya-select optgroup {
+  background: #f8fafc;
+  color: #0f172a;
+}

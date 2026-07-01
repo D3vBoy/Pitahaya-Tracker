@@ -52,7 +52,10 @@ const createEmptyForm = (prospect?: NullablePartialProspectData | null): Prospec
   monto_total: prospect?.monto_total ?? "",
   plan_financiamiento: prospect?.plan_financiamiento ?? "contado",
   estatus_enganche: prospect?.estatus_enganche ?? "pendiente",
-  estatus_general: prospect?.estatus_general ?? "",
+  estatus_general:
+    prospect?.estatus_general && isAllowedStatus(prospect.estatus_general)
+      ? prospect.estatus_general
+      : "",
   proxima_accion: prospect?.proxima_accion ?? "",
   proximo_seguimiento: prospect?.proximo_seguimiento ?? "",
   probabilidad_cierre: prospect?.probabilidad_cierre ?? "",
@@ -206,6 +209,7 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
 
   const inputClass =
     "w-full rounded-xl border border-pitahaya-border bg-pitahaya-surface px-4 py-2.5 text-white placeholder-pitahaya-gray-500 transition-all duration-300 focus:border-pitahaya-cerise focus:outline-none focus:ring-2 focus:ring-pitahaya-cerise/20";
+  const selectClass = `${inputClass} pitahaya-select`;
 
   return (
     <>
@@ -228,7 +232,7 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
           <Input label="Monto total $" type="number" name="monto_total" value={form.monto_total} onChange={handleChange} />
           <div className="flex flex-col gap-1.5">
             <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Plan de financiamiento</label>
-            <select name="plan_financiamiento" value={form.plan_financiamiento} onChange={handleChange} className={inputClass}>
+            <select name="plan_financiamiento" value={form.plan_financiamiento} onChange={handleChange} className={selectClass}>
               <option value="contado">Contado</option>
               <option value="12_meses">12 meses</option>
               <option value="24_meses">24 meses</option>
@@ -237,7 +241,7 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
           </div>
           <div className="flex flex-col gap-1.5">
             <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Estatus enganche</label>
-            <select name="estatus_enganche" value={form.estatus_enganche} onChange={handleChange} className={inputClass}>
+            <select name="estatus_enganche" value={form.estatus_enganche} onChange={handleChange} className={selectClass}>
               <option value="realizado">Realizado</option>
               <option value="pendiente">Pendiente</option>
             </select>
@@ -249,7 +253,7 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
               value={form.estatus_general}
               onChange={handleChange}
               required
-              className={inputClass}
+              className={selectClass}
             >
               <option value="">Selecciona un status obligatorio</option>
               {STATUS_OPTIONS.map((status) => (
@@ -257,9 +261,6 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
                   {status}
                 </option>
               ))}
-              {form.estatus_general && !isAllowedStatus(form.estatus_general) ? (
-                <option value={form.estatus_general}>{form.estatus_general}</option>
-              ) : null}
             </select>
           </div>
           <Input label="Próxima acción" name="proxima_accion" value={form.proxima_accion} onChange={handleChange} placeholder="Ejemplo: Llamar el martes o N/A" />
@@ -299,7 +300,7 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
         {isGerenta && (
           <div className="flex flex-col gap-1.5">
             <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Asesor asignado *</label>
-            <select value={asesorId} onChange={(e) => setAsesorId(e.target.value)} required className={inputClass}>
+            <select value={asesorId} onChange={(e) => setAsesorId(e.target.value)} required className={selectClass}>
               <option value="">Selecciona un asesor</option>
               {asesores.map((a) => (
                 <option key={a.id} value={a.id}>{a.full_name || "Sin nombre"}</option>

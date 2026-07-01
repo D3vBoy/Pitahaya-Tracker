@@ -65,7 +65,7 @@ export default function SearchAndFilter({
         </div>
         <div className="w-full xl:w-56 flex flex-col gap-2">
           <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Estatus</label>
-          <select value={filters?.estatus || ""} onChange={(e) => setFilters?.({ ...filters, estatus: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+          <select value={filters?.estatus || ""} onChange={(e) => setFilters?.({ ...filters, estatus: e.target.value })} className="pitahaya-select w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
             <option value="">Todos</option>
             {STATUS_OPTIONS.map((status) => (
               <option key={status} value={status}>{status}</option>
@@ -74,7 +74,7 @@ export default function SearchAndFilter({
         </div>
         <div className="w-full xl:w-48 flex flex-col gap-2">
           <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Prob. minima</label>
-          <select value={filters?.probabilidad || ""} onChange={(e) => setFilters?.({ ...filters, probabilidad: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+          <select value={filters?.probabilidad || ""} onChange={(e) => setFilters?.({ ...filters, probabilidad: e.target.value })} className="pitahaya-select w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
             <option value="">Cualquiera</option>
             <option value="25">25% o mas</option>
             <option value="50">50% o más</option>
@@ -83,15 +83,15 @@ export default function SearchAndFilter({
         </div>
         <div className="w-full xl:w-56 flex flex-col gap-2">
           <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Apartado</label>
-          <select value={filters?.apartado || ""} onChange={(e) => setFilters?.({ ...filters, apartado: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+          <select value={filters?.apartado || ""} onChange={(e) => setFilters?.({ ...filters, apartado: e.target.value })} className="pitahaya-select w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
             <option value="">Todos</option>
-            <option value="apartados_activos">Apartados activos (pendientes de cierre)</option>
+            <option value="apartado_historial">Apartado realizado (incluye enganche/firma y cierre)</option>
           </select>
         </div>
         {showCorteFilter && (
           <div className="w-full xl:w-56 flex flex-col gap-2">
             <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Corte (mes)</label>
-            <select value={filters?.corte || ""} onChange={(e) => setFilters?.({ ...filters, corte: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+            <select value={filters?.corte || ""} onChange={(e) => setFilters?.({ ...filters, corte: e.target.value })} className="pitahaya-select w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
               <option value="">Todos los cortes</option>
               {corteOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -102,7 +102,7 @@ export default function SearchAndFilter({
         {showAsesorFilter && (
           <div className="w-full xl:w-56 flex flex-col gap-2">
             <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Asesor</label>
-            <select value={filters?.asesor || ""} onChange={(e) => setFilters?.({ ...filters, asesor: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
+            <select value={filters?.asesor || ""} onChange={(e) => setFilters?.({ ...filters, asesor: e.target.value })} className="pitahaya-select w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
               <option value="">Todos los asesores</option>
               {asesores.map((asesor) => (
                 <option key={asesor.id} value={asesor.id}>{asesor.full_name || "Sin nombre"}</option>

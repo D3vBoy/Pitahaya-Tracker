@@ -10,12 +10,12 @@ import Modal from "@/components/ui/Modal";
 import ProspectForm from "@/components/prospects/ProspectForm";
 import SearchAndFilter from "@/components/prospects/SearchAndFilter";
 import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
-import ProspectsTable from "@/components/prospects/ProspectsTable";
 import PipelineExcelTable from "@/components/prospects/PipelineExcelTable";
+import ActionCenterDashboard from "@/components/prospects/ActionCenterDashboard";
 import { exportAnalyticsPDF } from "@/lib/supabase/pdf";
 import KPICard from "@/components/ui/KPICard";
 import TabsNavigation from "@/components/ui/TabsNavigation";
-import { isActiveStatus } from "@/lib/prospects/status";
+import { hasApartadoHistory, hasMissingRequiredProspectFields, isActiveStatus } from "@/lib/prospects/status";
 
 interface ProspectWithAsesor {
   id: string;
@@ -53,8 +53,9 @@ export default function GerentaPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<Partial<ProspectWithAsesor> | null>(null);
+  const [forcedValidationShown, setForcedValidationShown] = useState(false);
   const [asesores, setAsesores] = useState<Asesor[]>([]);
-  const [tab, setTab] = useState<"list" | "pipeline" | "analytics">("list");
+  const [tab, setTab] = useState<"action" | "pipeline" | "analytics">("action");
   const [filters, setFilters] = useState({
     search: "",
     estatus: "",
@@ -93,6 +94,22 @@ export default function GerentaPage() {
     void fetchAsesores();
   }, [fetchProspects, fetchAsesores]);
 
+  useEffect(() => {
+    if (loading || forcedValidationShown) return;
+    const invalidProspect = prospects.find((p) => hasMissingRequiredProspectFields(p));
+    if (!invalidProspect) return;
+
+    const timer = window.setTimeout(() => {
+      setForcedValidationShown(true);
+      setTab("pipeline");
+      setEditingProspect(invalidProspect);
+      setModalOpen(true);
+      toast.error("Hay prospectos con campos obligatorios vacios. Corrige este registro ahora.");
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [forcedValidationShown, loading, prospects]);
+
   const filtered = useMemo(
     () =>
       prospects.filter((p) => {
@@ -103,9 +120,8 @@ export default function GerentaPage() {
             (p.probabilidad_cierre !== null && p.probabilidad_cierre >= filters.probabilidadMin)) &&
           (!filters.asesorId || p.user_id === filters.asesorId) &&
           (!filters.apartado ||
-            (filters.apartado === "apartados_activos" &&
-              p.apartado_realizado &&
-              isActiveStatus(p.estatus_general))) &&
+            ((filters.apartado === "apartado_historial" || filters.apartado === "apartados_activos") &&
+              hasApartadoHistory(p))) &&
           (!filters.corte || getCorteMonth(p) === filters.corte)
         );
       }),
@@ -197,7 +213,7 @@ export default function GerentaPage() {
             activeTab={tab}
             setActiveTab={setTab}
             items={[
-              { id: "list", label: "Lista" },
+              { id: "action", label: "Accion diaria" },
               { id: "pipeline", label: "Pipeline" },
               { id: "analytics", label: "Analiticas" },
             ]}
@@ -259,10 +275,9 @@ export default function GerentaPage() {
                 }}
               />
             ) : (
-              <ProspectsTable
-                data={filtered}
+              <ActionCenterDashboard
+                data={pipelineData}
                 loading={loading}
-                showAsesorColumn
                 onRowClick={(prospect) => {
                   setEditingProspect(prospect);
                   setModalOpen(true);

@@ -54,11 +54,11 @@ export default function PipelineExcelTable({ data, loading = false, onRowClick }
       </div>
 
       <div className="w-full overflow-x-auto custom-scrollbar">
-        <table className="min-w-[2400px] border-collapse text-left text-sm whitespace-nowrap">
+        <table className="min-w-[2000px] border-collapse text-left text-sm whitespace-nowrap md:min-w-[2300px]">
           <thead className="bg-[#130E12]/65 text-[11px] uppercase tracking-[0.18em] text-pitahaya-gray-300">
             <tr className="border-b border-[#39065E]">
-              <th className="sticky left-0 z-20 w-56 min-w-56 border-r border-[#39065E]/30 bg-[#130E12] px-4 py-4">Cliente</th>
-              <th className="sticky left-56 z-20 w-52 min-w-52 border-r border-[#39065E]/30 bg-[#130E12] px-4 py-4">Asesor</th>
+              <th className="w-44 min-w-44 border-r border-[#39065E]/30 bg-[#130E12] px-3 py-4 md:w-56 md:min-w-56 md:px-4 lg:sticky lg:left-0 lg:z-20">Cliente</th>
+              <th className="w-40 min-w-40 border-r border-[#39065E]/30 bg-[#130E12] px-3 py-4 md:w-52 md:min-w-52 md:px-4 lg:sticky lg:left-56 lg:z-20">Asesor</th>
               <th className="px-4 py-4">Estatus general</th>
               <th className="px-4 py-4">Estatus enganche</th>
               <th className="px-4 py-4">Prob. cierre</th>
@@ -100,11 +100,17 @@ export default function PipelineExcelTable({ data, loading = false, onRowClick }
                   className="cursor-pointer transition-colors hover:bg-[#39065E]/16"
                   onClick={() => onRowClick?.(prospect)}
                 >
-                  <td className="sticky left-0 z-10 w-56 min-w-56 border-r border-[#39065E]/25 bg-[#100b1b] px-4 py-3 font-semibold text-white">
-                    {prospect.nombre_cliente}
+                  <td
+                    title={prospect.nombre_cliente}
+                    className="w-44 min-w-44 border-r border-[#39065E]/25 bg-[#100b1b] px-3 py-3 font-semibold text-white md:w-56 md:min-w-56 md:px-4 lg:sticky lg:left-0 lg:z-10"
+                  >
+                    <span className="block truncate">{prospect.nombre_cliente}</span>
                   </td>
-                  <td className="sticky left-56 z-10 w-52 min-w-52 border-r border-[#39065E]/25 bg-[#100b1b] px-4 py-3">
-                    {displayValue(prospect.profiles?.full_name)}
+                  <td
+                    title={displayValue(prospect.profiles?.full_name)}
+                    className="w-40 min-w-40 border-r border-[#39065E]/25 bg-[#100b1b] px-3 py-3 md:w-52 md:min-w-52 md:px-4 lg:sticky lg:left-56 lg:z-10"
+                  >
+                    <span className="block truncate">{displayValue(prospect.profiles?.full_name)}</span>
                   </td>
                   <td className="px-4 py-3">{displayValue(prospect.estatus_general)}</td>
                   <td className="px-4 py-3">{displayValue(prospect.estatus_enganche)}</td>
