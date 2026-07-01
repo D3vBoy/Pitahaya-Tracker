@@ -20,7 +20,7 @@ export const metadata: Metadata = {
   title: "Pitahaya Tracker",
   description: "Control de Prospeccion Comercial",
   applicationName: "Pitahaya Tracker",
-  manifest: "/manifest.webmanifest",
+  manifest: "/pitahaya.webmanifest",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

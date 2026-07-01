@@ -12,10 +12,24 @@ import SearchAndFilter from "@/components/prospects/SearchAndFilter";
 import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
 import PipelineExcelTable from "@/components/prospects/PipelineExcelTable";
 import ActionCenterDashboard from "@/components/prospects/ActionCenterDashboard";
+import DailyClosureManagerPanel from "@/components/reports/DailyClosureManagerPanel";
 import { exportAnalyticsPDF } from "@/lib/supabase/pdf";
 import KPICard from "@/components/ui/KPICard";
 import TabsNavigation from "@/components/ui/TabsNavigation";
-import { hasApartadoHistory, isActiveStatus } from "@/lib/prospects/status";
+import { hasApartadoHistory, isActiveStatus, isClosedWonStatus } from "@/lib/prospects/status";
+import {
+  DAILY_CLOSURE_SETUP_MESSAGE,
+  DailyClosureEditRequestRow,
+  DailyClosureGlobalReportRow,
+  DailyClosureReportRow,
+  getEndOfTodayIso,
+  getMonthKey,
+  getTodayDateKey,
+  isMissingDailyClosureRelationError,
+  isPastReportDate,
+  sumReportCalls,
+  TEAM_NAME,
+} from "@/lib/reports/dailyClosure";
 
 interface ProspectWithAsesor {
   id: string;
@@ -54,7 +68,16 @@ export default function GerentaPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<Partial<ProspectWithAsesor> | null>(null);
   const [asesores, setAsesores] = useState<Asesor[]>([]);
-  const [tab, setTab] = useState<"action" | "pipeline" | "analytics">("action");
+  const [dailyReports, setDailyReports] = useState<DailyClosureReportRow[]>([]);
+  const [monthlyDailyReports, setMonthlyDailyReports] = useState<DailyClosureReportRow[]>([]);
+  const [globalReport, setGlobalReport] = useState<DailyClosureGlobalReportRow | null>(null);
+  const [pendingEditRequests, setPendingEditRequests] = useState<DailyClosureEditRequestRow[]>([]);
+  const [dailyClosureAvailable, setDailyClosureAvailable] = useState(true);
+  const [dailyClosureMessage, setDailyClosureMessage] = useState("");
+  const [dailyReportsLoading, setDailyReportsLoading] = useState(true);
+  const [globalReportSaving, setGlobalReportSaving] = useState(false);
+  const [selectedReportDate, setSelectedReportDate] = useState(getTodayDateKey());
+  const [tab, setTab] = useState<"action" | "pipeline" | "dailyClose" | "analytics">("action");
   const [filters, setFilters] = useState({
     search: "",
     estatus: "",
@@ -87,11 +110,67 @@ export default function GerentaPage() {
     setAsesores(data || []);
   }, [supabase]);
 
+  const fetchDailyReports = useCallback(async () => {
+    if (!dailyClosureAvailable && dailyClosureMessage) {
+      setDailyReportsLoading(false);
+      return;
+    }
+
+    setDailyReportsLoading(true);
+    const monthKey = getMonthKey(selectedReportDate);
+    const monthStart = `${monthKey}-01`;
+    const monthEnd = `${monthKey}-31`;
+
+    const [reportsResponse, globalReportResponse, requestsResponse, monthReportsResponse] = await Promise.all([
+      supabase
+        .from("daily_closure_reports")
+        .select("*, profiles(full_name)")
+        .eq("report_date", selectedReportDate),
+      supabase
+        .from("daily_closure_global_reports")
+        .select("*")
+        .eq("report_date", selectedReportDate)
+        .maybeSingle(),
+      supabase
+        .from("daily_closure_edit_requests")
+        .select("*, requested_by_profile:profiles!daily_closure_edit_requests_requested_by_fkey(full_name)")
+        .eq("status", "pending")
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("daily_closure_reports")
+        .select("*")
+        .gte("report_date", monthStart)
+        .lte("report_date", monthEnd),
+    ]);
+
+    const missingClosureTables =
+      isMissingDailyClosureRelationError(reportsResponse.error) ||
+      isMissingDailyClosureRelationError(globalReportResponse.error) ||
+      isMissingDailyClosureRelationError(requestsResponse.error) ||
+      isMissingDailyClosureRelationError(monthReportsResponse.error);
+
+    setDailyClosureAvailable(!missingClosureTables);
+    setDailyClosureMessage(missingClosureTables ? DAILY_CLOSURE_SETUP_MESSAGE : "");
+    setDailyReports(missingClosureTables ? [] : ((reportsResponse.data || []) as DailyClosureReportRow[]));
+    setMonthlyDailyReports(missingClosureTables ? [] : ((monthReportsResponse.data || []) as DailyClosureReportRow[]));
+    setGlobalReport(missingClosureTables ? null : ((globalReportResponse.data || null) as DailyClosureGlobalReportRow | null));
+    setPendingEditRequests(missingClosureTables ? [] : ((requestsResponse.data || []) as DailyClosureEditRequestRow[]));
+    setDailyReportsLoading(false);
+  }, [dailyClosureAvailable, dailyClosureMessage, selectedReportDate, supabase]);
+
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchProspects();
     void fetchAsesores();
   }, [fetchProspects, fetchAsesores]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => {
+      void fetchDailyReports();
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [fetchDailyReports]);
 
   const filtered = useMemo(
     () =>
@@ -137,6 +216,117 @@ export default function GerentaPage() {
     () => [...filtered].sort((a, b) => (b.probabilidad_cierre || 0) - (a.probabilidad_cierre || 0)),
     [filtered]
   );
+
+  const dailyClosureMetrics = useMemo(() => {
+    const monthKey = getMonthKey(selectedReportDate);
+    return {
+      videollamadasEjecutadas: dailyReports.reduce((acc, report) => acc + report.videollamadas_ejecutadas, 0),
+      apartadosDelDia: prospects.filter((prospect) => prospect.fecha_apartado?.slice(0, 10) === selectedReportDate).length,
+      enganchesDelDia: prospects.filter((prospect) => prospect.fecha_enganche?.slice(0, 10) === selectedReportDate).length,
+      totalLlamadas: dailyReports.reduce((acc, report) => acc + sumReportCalls(report), 0),
+      videollamadasAgendadas: dailyReports.reduce((acc, report) => acc + report.videollamadas_agendadas, 0),
+      apartadosDelMes: monthlyDailyReports.reduce((acc, report) => acc + report.apartados_del_mes, 0),
+      apartadosFormalizados: prospects.filter((prospect) => {
+        const apartadoMonth = prospect.fecha_apartado?.slice(0, 7);
+        if (apartadoMonth !== monthKey) return false;
+        return Boolean(prospect.fecha_enganche || prospect.firma_pcv || isClosedWonStatus(prospect.estatus_general));
+      }).length,
+      enganchesDelMes: monthlyDailyReports.reduce((acc, report) => acc + report.enganches_del_mes, 0),
+    };
+  }, [dailyReports, monthlyDailyReports, prospects, selectedReportDate]);
+
+  const handleSaveGlobalReport = useCallback(async (input: { videollamadasConPresencia: number; notas: string }) => {
+    if (!dailyClosureAvailable) {
+      throw new Error(DAILY_CLOSURE_SETUP_MESSAGE);
+    }
+
+    setGlobalReportSaving(true);
+    try {
+      const payload = {
+        report_date: selectedReportDate,
+        team_name: TEAM_NAME,
+        videollamadas_ejecutadas: dailyClosureMetrics.videollamadasEjecutadas,
+        videollamadas_con_presencia: input.videollamadasConPresencia,
+        apartados_del_dia: dailyClosureMetrics.apartadosDelDia,
+        enganches_del_dia: dailyClosureMetrics.enganchesDelDia,
+        total_llamadas: dailyClosureMetrics.totalLlamadas,
+        videollamadas_agendadas: dailyClosureMetrics.videollamadasAgendadas,
+        apartados_del_mes: dailyClosureMetrics.apartadosDelMes,
+        apartados_formalizados: dailyClosureMetrics.apartadosFormalizados,
+        enganches_del_mes: dailyClosureMetrics.enganchesDelMes,
+        notas: input.notas,
+        updated_at: new Date().toISOString(),
+      };
+
+      const { data, error } = await supabase
+        .from("daily_closure_global_reports")
+        .upsert(payload, { onConflict: "report_date" })
+        .select("*")
+        .single();
+
+      if (error) throw new Error(error.message);
+      setGlobalReport(data as DailyClosureGlobalReportRow);
+    } finally {
+      setGlobalReportSaving(false);
+    }
+  }, [dailyClosureAvailable, dailyClosureMetrics, selectedReportDate, supabase]);
+
+  const handleApproveEditRequest = async (request: DailyClosureEditRequestRow) => {
+    if (!dailyClosureAvailable) {
+      throw new Error(DAILY_CLOSURE_SETUP_MESSAGE);
+    }
+
+    const unlockUntil = getEndOfTodayIso();
+
+    const { error: reportError } = await supabase
+      .from("daily_closure_reports")
+      .update({ edit_unlocked_until: unlockUntil, updated_at: new Date().toISOString() })
+      .eq("id", request.report_id);
+    if (reportError) throw new Error(reportError.message);
+
+    const { error: requestError } = await supabase
+      .from("daily_closure_edit_requests")
+      .update({ status: "approved", reviewed_at: new Date().toISOString() })
+      .eq("id", request.id);
+    if (requestError) throw new Error(requestError.message);
+
+    await fetchDailyReports();
+  };
+
+  const handleRejectEditRequest = async (request: DailyClosureEditRequestRow) => {
+    if (!dailyClosureAvailable) {
+      throw new Error(DAILY_CLOSURE_SETUP_MESSAGE);
+    }
+
+    const { error } = await supabase
+      .from("daily_closure_edit_requests")
+      .update({ status: "rejected", reviewed_at: new Date().toISOString() })
+      .eq("id", request.id);
+    if (error) throw new Error(error.message);
+    await fetchDailyReports();
+  };
+
+  useEffect(() => {
+    if (dailyReportsLoading || globalReportSaving) return;
+    if (!dailyClosureAvailable) return;
+    if (!isPastReportDate(selectedReportDate)) return;
+    if (dailyReports.length === 0) return;
+
+    const latestReportUpdate = Math.max(
+      ...dailyReports.map((report) => new Date(report.updated_at || report.submitted_at).getTime())
+    );
+    const globalUpdatedAt = globalReport ? new Date(globalReport.updated_at || globalReport.generated_at).getTime() : 0;
+    if (globalUpdatedAt >= latestReportUpdate) return;
+
+    const timer = window.setTimeout(() => {
+      void handleSaveGlobalReport({
+        videollamadasConPresencia: globalReport?.videollamadas_con_presencia ?? 0,
+        notas: globalReport?.notas ?? "",
+      });
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [dailyClosureAvailable, dailyReports, dailyReportsLoading, globalReport, globalReportSaving, handleSaveGlobalReport, selectedReportDate]);
 
   const searchTerm = filters.search;
   const setSearchTerm = (value: string) => {
@@ -198,6 +388,7 @@ export default function GerentaPage() {
             items={[
               { id: "action", label: "Accion diaria" },
               { id: "pipeline", label: "Pipeline" },
+              { id: "dailyClose", label: "Cierre de dia" },
               { id: "analytics", label: "Analiticas" },
             ]}
           />
@@ -234,20 +425,22 @@ export default function GerentaPage() {
           </>
         ) : (
           <>
-            <SearchAndFilter
-              searchTerm={searchTerm}
-              setSearchTerm={setSearchTerm}
-              filters={uiFilters}
-              setFilters={setUiFilters}
-              asesores={asesores}
-              showAsesorFilter
-              showCorteFilter
-              corteOptions={corteOptions}
-              onNewProspect={() => {
-                setEditingProspect(null);
-                setModalOpen(true);
-              }}
-            />
+            {tab !== "dailyClose" && (
+              <SearchAndFilter
+                searchTerm={searchTerm}
+                setSearchTerm={setSearchTerm}
+                filters={uiFilters}
+                setFilters={setUiFilters}
+                asesores={asesores}
+                showAsesorFilter
+                showCorteFilter
+                corteOptions={corteOptions}
+                onNewProspect={() => {
+                  setEditingProspect(null);
+                  setModalOpen(true);
+                }}
+              />
+            )}
             {tab === "pipeline" ? (
               <PipelineExcelTable
                 data={pipelineData}
@@ -256,6 +449,22 @@ export default function GerentaPage() {
                   setEditingProspect(prospect);
                   setModalOpen(true);
                 }}
+              />
+            ) : tab === "dailyClose" ? (
+              <DailyClosureManagerPanel
+                asesores={asesores}
+                reports={dailyReports}
+                reportDate={selectedReportDate}
+                onReportDateChange={setSelectedReportDate}
+                globalReport={globalReport}
+                metrics={dailyClosureMetrics}
+                pendingRequests={pendingEditRequests}
+                loading={dailyReportsLoading}
+                syncingGlobal={globalReportSaving}
+                onSaveGlobal={handleSaveGlobalReport}
+                onApproveRequest={handleApproveEditRequest}
+                onRejectRequest={handleRejectEditRequest}
+                unavailableMessage={dailyClosureMessage}
               />
             ) : (
               <ActionCenterDashboard

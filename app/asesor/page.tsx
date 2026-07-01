@@ -7,9 +7,18 @@ import ProspectForm from "@/components/prospects/ProspectForm";
 import SearchAndFilter from "@/components/prospects/SearchAndFilter";
 import ProspectsTable from "@/components/prospects/ProspectsTable";
 import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
+import DailyClosureAdvisorPanel from "../../components/reports/DailyClosureAdvisorPanel";
 import KPICard from "@/components/ui/KPICard";
 import TabsNavigation from "@/components/ui/TabsNavigation";
 import { hasApartadoHistory, hasMissingRequiredProspectFields, isActiveStatus } from "@/lib/prospects/status";
+import {
+  DAILY_CLOSURE_SETUP_MESSAGE,
+  DailyClosureEditRequestRow,
+  DailyClosureFormValues,
+  DailyClosureReportRow,
+  getTodayDateKey,
+  isMissingDailyClosureRelationError,
+} from "@/lib/reports/dailyClosure";
 
 interface Prospect {
   id: string;
@@ -35,7 +44,15 @@ export default function AsesorPage() {
   const [editingProspect, setEditingProspect] = useState<Partial<Prospect> | null>(null);
   const [pendingInvalidProspect, setPendingInvalidProspect] = useState<Prospect | null>(null);
   const [forcedValidationShown, setForcedValidationShown] = useState(false);
-  const [tab, setTab] = useState<"list" | "analytics">("list");
+  const [dailyReports, setDailyReports] = useState<DailyClosureReportRow[]>([]);
+  const [dailyRequests, setDailyRequests] = useState<DailyClosureEditRequestRow[]>([]);
+  const [dailyClosureAvailable, setDailyClosureAvailable] = useState(true);
+  const [dailyClosureMessage, setDailyClosureMessage] = useState("");
+  const [selectedReportDate, setSelectedReportDate] = useState(getTodayDateKey());
+  const [dailyReportSubmitting, setDailyReportSubmitting] = useState(false);
+  const [requestingPermission, setRequestingPermission] = useState(false);
+  const [advisorName, setAdvisorName] = useState("Asesor");
+  const [tab, setTab] = useState<"list" | "dailyClose" | "analytics">("list");
   const [filters, setFilters] = useState({
     search: "",
     estatus: "",
@@ -47,14 +64,116 @@ export default function AsesorPage() {
   const fetchProspects = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const { data } = await supabase
-      .from("prospects")
-      .select("*")
-      .eq("user_id", user.id)
-      .order("created_at", { ascending: false });
-    setProspects(data || []);
+    const [{ data: prospectsData }, dailyReportsResponse, { data: profileData }, requestsResponse] = await Promise.all([
+      supabase
+        .from("prospects")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("created_at", { ascending: false }),
+      supabase
+        .from("daily_closure_reports")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("report_date", { ascending: false }),
+      supabase.from("profiles").select("full_name").eq("id", user.id).maybeSingle(),
+      supabase
+        .from("daily_closure_edit_requests")
+        .select("*")
+        .eq("requested_by", user.id)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    const dailyReportsError = dailyReportsResponse.error;
+    const requestsError = requestsResponse.error;
+    const missingClosureTables =
+      isMissingDailyClosureRelationError(dailyReportsError) ||
+      isMissingDailyClosureRelationError(requestsError);
+
+    setProspects(prospectsData || []);
+    setDailyReports(missingClosureTables ? [] : ((dailyReportsResponse.data || []) as DailyClosureReportRow[]));
+    setDailyRequests(missingClosureTables ? [] : ((requestsResponse.data || []) as DailyClosureEditRequestRow[]));
+    setAdvisorName(profileData?.full_name || "Asesor");
+    setDailyClosureAvailable(!missingClosureTables);
+    setDailyClosureMessage(missingClosureTables ? DAILY_CLOSURE_SETUP_MESSAGE : "");
     setLoading(false);
   }, [supabase]);
+
+  const handleSaveDailyReport = async (reportDate: string, values: DailyClosureFormValues, reportId?: string) => {
+    if (!dailyClosureAvailable) {
+      throw new Error(DAILY_CLOSURE_SETUP_MESSAGE);
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) {
+      throw new Error("No autenticado");
+    }
+
+    setDailyReportSubmitting(true);
+    try {
+      const query = reportId
+        ? supabase
+            .from("daily_closure_reports")
+            .update({
+              ...values,
+              updated_at: new Date().toISOString(),
+              edit_unlocked_until: reportDate === getTodayDateKey() ? null : null,
+            })
+            .eq("id", reportId)
+            .select("*")
+            .single()
+        : supabase
+            .from("daily_closure_reports")
+            .insert({
+              user_id: user.id,
+              report_date: reportDate,
+              ...values,
+              updated_at: new Date().toISOString(),
+            })
+            .select("*")
+            .single();
+
+      const { data, error } = await query;
+
+      if (error) throw new Error(error.message);
+
+      setDailyReports((prev) => {
+        const next = prev.filter((item) => item.id !== data.id && item.report_date !== data.report_date);
+        return [data as DailyClosureReportRow, ...next].sort((a, b) => b.report_date.localeCompare(a.report_date));
+      });
+    } catch (error) {
+      throw new Error(error instanceof Error ? error.message : "No se pudo registrar el cierre de día");
+    } finally {
+      setDailyReportSubmitting(false);
+    }
+  };
+
+  const handleRequestDailyReportEdit = async (report: DailyClosureReportRow, reason: string) => {
+    if (!dailyClosureAvailable) {
+      throw new Error(DAILY_CLOSURE_SETUP_MESSAGE);
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) throw new Error("No autenticado");
+
+    setRequestingPermission(true);
+    try {
+      const { data, error } = await supabase
+        .from("daily_closure_edit_requests")
+        .insert({
+          report_id: report.id,
+          report_date: report.report_date,
+          requested_by: user.id,
+          reason,
+        })
+        .select("*")
+        .single();
+
+      if (error) throw new Error(error.message);
+      setDailyRequests((prev) => [data as DailyClosureEditRequestRow, ...prev]);
+    } finally {
+      setRequestingPermission(false);
+    }
+  };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -151,6 +270,7 @@ export default function AsesorPage() {
           setActiveTab={setTab}
           items={[
             { id: "list", label: "Lista" },
+            { id: "dailyClose", label: "Cierre de dia" },
             { id: "analytics", label: "Analiticas" },
           ]}
         />
@@ -179,6 +299,20 @@ export default function AsesorPage() {
             }}
           />
         </>
+      ) : tab === "dailyClose" ? (
+        <DailyClosureAdvisorPanel
+          advisorName={advisorName}
+          selectedDate={selectedReportDate}
+          onSelectedDateChange={setSelectedReportDate}
+          reports={dailyReports}
+          requests={dailyRequests}
+          loading={loading}
+          saving={dailyReportSubmitting}
+          requestingPermission={requestingPermission}
+          onSave={handleSaveDailyReport}
+          onRequestPermission={handleRequestDailyReportEdit}
+          unavailableMessage={dailyClosureMessage}
+        />
       ) : (
         <div className="space-y-6">
           <AnalyticsDashboard prospects={prospects} />

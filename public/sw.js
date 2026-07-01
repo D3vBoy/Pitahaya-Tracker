@@ -1,5 +1,5 @@
 const CACHE_VERSION = "pitahaya-pwa-v1";
-const PRECACHE_URLS = ["/", "/manifest.webmanifest", "/api/pwa-icon/192", "/api/pwa-icon/512"];
+const PRECACHE_URLS = ["/", "/pitahaya.webmanifest", "/api/pwa-icon/192", "/api/pwa-icon/512"];
 
 self.addEventListener("install", (event) => {
   event.waitUntil(
