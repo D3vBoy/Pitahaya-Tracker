@@ -61,14 +61,14 @@ function ProspectChip({
     <button
       type="button"
       onClick={() => onClick?.(prospect)}
-      className="w-full rounded-lg border border-[#39065E]/35 bg-[#100B1B]/55 px-3 py-2 text-left transition-colors hover:bg-[#39065E]/16"
+      className="theme-surface-strong w-full rounded-lg px-3 py-2 text-left transition-colors hover:bg-pitahaya-cerise/8"
     >
       <div className="flex items-center justify-between gap-2">
-        <p className="truncate text-sm font-semibold text-white">{displayValue(prospect.nombre_cliente)}</p>
-        <span className="text-xs text-pitahaya-gray-500">{prospect.probabilidad_cierre ?? 0}%</span>
+        <p className="theme-text-primary truncate text-sm font-semibold">{displayValue(prospect.nombre_cliente)}</p>
+        <span className="theme-text-secondary text-xs">{prospect.probabilidad_cierre ?? 0}%</span>
       </div>
-      <p className="mt-1 truncate text-xs text-pitahaya-gray-400">Asesor: {displayValue(prospect.profiles?.full_name)}</p>
-      <p className="mt-0.5 text-xs text-pitahaya-gray-500">Seguimiento: {formatDate(prospect.proximo_seguimiento)}</p>
+      <p className="theme-text-tertiary mt-1 truncate text-xs">Asesor: {displayValue(prospect.profiles?.full_name)}</p>
+      <p className="theme-text-secondary mt-0.5 text-xs">Seguimiento: {formatDate(prospect.proximo_seguimiento)}</p>
     </button>
   );
 }
@@ -88,18 +88,18 @@ function SectionCard({
 }) {
   return (
     <div className="premium-panel rounded-2xl p-4">
-      <div className="mb-3 flex items-end justify-between gap-3 border-b border-[#39065E]/35 pb-3">
+      <div className="mb-3 flex items-end justify-between gap-3 border-b border-pitahaya-border pb-3">
         <div>
-          <p className="text-sm font-semibold text-white">{title}</p>
-          <p className="text-xs text-pitahaya-gray-500">{subtitle}</p>
+          <p className="theme-text-primary text-sm font-semibold">{title}</p>
+          <p className="theme-text-secondary text-xs">{subtitle}</p>
         </div>
-        <span className="rounded-full border border-[#39065E]/50 bg-[#39065E]/18 px-2.5 py-1 text-xs font-semibold text-white">
+        <span className="theme-badge rounded-full px-2.5 py-1 text-xs font-semibold">
           {count}
         </span>
       </div>
       <div className="space-y-2">
         {prospects.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-[#39065E]/35 px-3 py-5 text-center text-xs text-pitahaya-gray-500">
+          <p className="theme-text-secondary rounded-lg border border-dashed border-pitahaya-border px-3 py-5 text-center text-xs">
             Sin prospectos en este bloque.
           </p>
         ) : (
@@ -179,7 +179,7 @@ export default function ActionCenterDashboard({ data, loading = false, onRowClic
 
   if (loading) {
     return (
-      <div className="premium-panel rounded-2xl p-10 text-center text-pitahaya-gray-500">
+      <div className="premium-panel theme-text-secondary rounded-2xl p-10 text-center">
         Cargando centro de accion...
       </div>
     );
@@ -221,25 +221,25 @@ export default function ActionCenterDashboard({ data, loading = false, onRowClic
       <div className="premium-panel rounded-2xl p-5">
         <div className="mb-4 flex items-end justify-between gap-3">
           <div>
-            <h3 className="text-base font-semibold text-white">Mini Kanban de seguimiento</h3>
-            <p className="text-xs text-pitahaya-gray-500">Vista rapida por status (solo lectura)</p>
+            <h3 className="theme-text-primary text-base font-semibold">Mini Kanban de seguimiento</h3>
+            <p className="theme-text-secondary text-xs">Vista rapida por status (solo lectura)</p>
           </div>
-          <span className="rounded-full border border-[#39065E]/45 bg-[#39065E]/20 px-2.5 py-1 text-xs text-pitahaya-gray-300">
+          <span className="theme-badge rounded-full px-2.5 py-1 text-xs">
             {active.length} activos
           </span>
         </div>
 
         {kanbanColumns.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-[#39065E]/35 px-3 py-8 text-center text-sm text-pitahaya-gray-500">
+          <p className="theme-text-secondary rounded-lg border border-dashed border-pitahaya-border px-3 py-8 text-center text-sm">
             No hay prospectos activos para mostrar en kanban.
           </p>
         ) : (
           <div className="grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-5">
             {kanbanColumns.map(([status, prospects]) => (
-              <div key={status} className="rounded-xl border border-[#39065E]/35 bg-[#0E0918]/65 p-3">
-                <div className="mb-2 border-b border-[#39065E]/30 pb-2">
-                  <p className="line-clamp-2 text-xs font-semibold uppercase tracking-[0.08em] text-white">{status}</p>
-                  <p className="mt-1 text-xs text-pitahaya-gray-500">{prospects.length} prospectos</p>
+              <div key={status} className="theme-surface-soft rounded-xl p-3">
+                <div className="mb-2 border-b border-pitahaya-border pb-2">
+                  <p className="theme-text-primary line-clamp-2 text-xs font-semibold uppercase tracking-[0.08em]">{status}</p>
+                  <p className="theme-text-secondary mt-1 text-xs">{prospects.length} prospectos</p>
                 </div>
                 <div className="space-y-2">
                   {prospects.slice(0, 3).map((prospect) => (
@@ -254,31 +254,31 @@ export default function ActionCenterDashboard({ data, loading = false, onRowClic
 
       <div className="premium-panel rounded-2xl p-5">
         <div className="mb-4">
-          <h3 className="text-base font-semibold text-white">Radar de riesgos</h3>
-          <p className="text-xs text-pitahaya-gray-500">Alertas automaticas para evitar oportunidades perdidas</p>
+          <h3 className="theme-text-primary text-base font-semibold">Radar de riesgos</h3>
+          <p className="theme-text-secondary text-xs">Alertas automaticas para evitar oportunidades perdidas</p>
         </div>
 
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-3">
-          <div className="rounded-xl border border-rose-400/30 bg-rose-500/8 p-4">
-            <p className="text-sm font-semibold text-rose-200">Sin fecha de seguimiento</p>
-            <p className="mt-1 text-2xl font-bold text-white">{riskNoDate.length}</p>
-            <p className="mt-1 text-xs text-pitahaya-gray-300">Prospectos activos sin proxima fecha definida.</p>
+          <div className="theme-alert-rose rounded-xl p-4">
+            <p className="theme-text-primary text-sm font-semibold">Sin fecha de seguimiento</p>
+            <p className="theme-text-primary mt-1 text-2xl font-bold">{riskNoDate.length}</p>
+            <p className="theme-text-secondary mt-1 text-xs">Prospectos activos sin proxima fecha definida.</p>
           </div>
 
-          <div className="rounded-xl border border-amber-400/30 bg-amber-500/8 p-4">
-            <p className="text-sm font-semibold text-amber-200">Seguimiento atrasado (+5 dias)</p>
-            <p className="mt-1 text-2xl font-bold text-white">{riskStale.length}</p>
-            <p className="mt-1 text-xs text-pitahaya-gray-300">Casos con riesgo de enfriamiento comercial.</p>
+          <div className="theme-alert-amber rounded-xl p-4">
+            <p className="theme-text-primary text-sm font-semibold">Seguimiento atrasado (+5 dias)</p>
+            <p className="theme-text-primary mt-1 text-2xl font-bold">{riskStale.length}</p>
+            <p className="theme-text-secondary mt-1 text-xs">Casos con riesgo de enfriamiento comercial.</p>
           </div>
 
-          <div className="rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/8 p-4">
-            <p className="text-sm font-semibold text-fuchsia-200">Apartado sin fecha de enganche</p>
-            <p className="mt-1 text-2xl font-bold text-white">{riskApartado.length}</p>
-            <p className="mt-1 text-xs text-pitahaya-gray-300">Casos apartados que necesitan empuje de cierre.</p>
+          <div className="theme-alert-violet rounded-xl p-4">
+            <p className="theme-text-primary text-sm font-semibold">Apartado sin fecha de enganche</p>
+            <p className="theme-text-primary mt-1 text-2xl font-bold">{riskApartado.length}</p>
+            <p className="theme-text-secondary mt-1 text-xs">Casos apartados que necesitan empuje de cierre.</p>
           </div>
         </div>
 
-        <div className="mt-4 rounded-xl border border-[#39065E]/35 bg-[#0F0A19]/60 p-3 text-xs text-pitahaya-gray-400">
+        <div className="theme-surface-soft theme-text-secondary mt-4 rounded-xl p-3 text-xs">
           Top impacto potencial: {hotLeads.slice(0, 3).map((p) => `${displayValue(p.nombre_cliente)} (${formatMoney(p.monto_total)})`).join(" • ") || "N/A"}
         </div>
       </div>

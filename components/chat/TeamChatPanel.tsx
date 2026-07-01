@@ -4,8 +4,11 @@ import { useEffect, useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { createClientSupabase } from "@/lib/supabase/client";
 import Button from "@/components/ui/Button";
+import { useTeamNotifications } from "@/components/providers/TeamNotificationsProvider";
 import {
   CHAT_SETUP_MESSAGE,
+  getDirectConversationKey,
+  getGlobalConversationKey,
   isAdvisorChatRole,
   isManagementChatRole,
   isMissingChatRelationError,
@@ -120,6 +123,7 @@ export default function TeamChatPanel({
   directoryHint = "",
 }: Props) {
   const supabase = createClientSupabase();
+  const { unreadByConversation, markConversationRead } = useTeamNotifications();
   const [messages, setMessages] = useState<TeamMessageRow[]>([]);
   const [body, setBody] = useState("");
   const [loading, setLoading] = useState(true);
@@ -396,15 +400,12 @@ export default function TeamChatPanel({
     if (!chatAvailable || !currentUserId) return;
     if (selectedConversation.type === "observed") return;
 
-    const payload = {
-      user_id: currentUserId,
-      conversation_type: selectedConversation.type === "general" ? "global" : "direct",
-      peer_user_id: selectedConversation.type === "direct" ? selectedConversation.peerId : null,
-      last_read_at: new Date().toISOString(),
-    };
-
-    void supabase.from("team_message_reads").upsert(payload, { onConflict: "user_id,conversation_type,peer_user_id" });
-  }, [chatAvailable, currentUserId, selectedConversation, supabase]);
+    void markConversationRead(
+      selectedConversation.type === "general"
+        ? { type: "general" }
+        : { type: "direct", peerUserId: selectedConversation.peerId }
+    );
+  }, [chatAvailable, currentUserId, markConversationRead, selectedConversation]);
 
   const handleSend = async () => {
     const trimmed = body.trim();
@@ -471,6 +472,11 @@ export default function TeamChatPanel({
         <div className="space-y-2">
           {channels.map((channel) => {
             const active = getConversationKey(channel) === getConversationKey(selectedConversation);
+            const unreadCount = channel.type === "general"
+              ? unreadByConversation[getGlobalConversationKey()] || 0
+              : channel.type === "direct"
+                ? unreadByConversation[getDirectConversationKey(channel.peerId)] || 0
+                : 0;
             return (
               <button
                 key={getConversationKey(channel)}
@@ -478,7 +484,14 @@ export default function TeamChatPanel({
                 onClick={() => setSelectedConversation(channel)}
                 className={`w-full rounded-xl border px-4 py-3 text-left text-sm transition-colors ${active ? "border-[#CF3790]/55 bg-[#39065E]/18 text-white" : "border-[#39065E]/30 bg-[#100B1B]/45 text-pitahaya-gray-300 hover:bg-[#39065E]/12"}`}
               >
-                {channel.label}
+                <span className="flex items-center justify-between gap-3">
+                  <span className="truncate">{channel.label}</span>
+                  {unreadCount > 0 ? (
+                    <span className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${active ? "bg-white/18 text-white" : "bg-pitahaya-cerise/12 text-pitahaya-cerise"}`}>
+                      {unreadCount > 99 ? "99+" : unreadCount}
+                    </span>
+                  ) : null}
+                </span>
               </button>
             );
           })}

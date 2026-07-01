@@ -12,16 +12,16 @@ export default function KPICard({
   textAccent = "text-white",
 }: Props) {
   return (
-    <div className="relative overflow-hidden bg-[#1E0324]/85 backdrop-blur-md border border-[#39065E] rounded-2xl p-6 shadow-xl flex flex-col justify-center w-full min-h-[132px]">
+    <div className="theme-kpi-shell relative flex min-h-[132px] w-full flex-col justify-center overflow-hidden rounded-2xl p-6 backdrop-blur-md">
       {glowColor && (
         <div
           className={`absolute -right-8 -top-8 w-28 h-28 rounded-full blur-2xl ${glowColor} pointer-events-none`}
         />
       )}
-      <span className="text-[11px] font-bold text-gray-400 uppercase tracking-widest mb-2 z-10">
+      <span className="theme-text-secondary z-10 mb-2 text-[11px] font-bold uppercase tracking-widest">
         {titulo}
       </span>
-      <span className={`text-3xl font-black ${textAccent} tracking-tight z-10`}>
+      <span className={`theme-text-primary z-10 text-3xl font-black tracking-tight ${textAccent}`}>
         {valor}
       </span>
     </div>

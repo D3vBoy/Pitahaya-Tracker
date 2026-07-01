@@ -8,6 +8,7 @@ interface TabsNavigationProps<T extends string> {
   items: Array<{
     id: T;
     label: string;
+    badgeCount?: number;
   }>;
 }
 
@@ -20,7 +21,7 @@ export default function TabsNavigation<T extends string>({
     <motion.div
       initial={{ opacity: 0, y: -8 }}
       animate={{ opacity: 1, y: 0 }}
-      className="inline-flex h-12 items-center gap-1 rounded-2xl border border-pitahaya-border bg-pitahaya-surface/80 p-1 shadow-glass backdrop-blur-xl"
+      className="theme-surface-soft inline-flex h-12 items-center gap-1 rounded-2xl p-1 shadow-glass backdrop-blur-xl"
     >
       {items.map((item) => {
         const isActive = activeTab === item.id;
@@ -33,10 +34,17 @@ export default function TabsNavigation<T extends string>({
             className={`relative h-10 rounded-xl px-4 text-sm font-semibold transition-all duration-200 ${
               isActive
                 ? "bg-gradient-primary text-white shadow-glow-cerise"
-                : "text-pitahaya-gray-500 hover:text-white hover:bg-pitahaya-cerise/8"
+                : "theme-text-secondary hover:theme-text-primary hover:bg-pitahaya-cerise/8"
             }`}
           >
-            {item.label}
+            <span className="inline-flex items-center gap-2">
+              <span>{item.label}</span>
+              {item.badgeCount ? (
+                <span className={`inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[10px] font-bold ${isActive ? "bg-white/18 text-white" : "bg-pitahaya-cerise/12 text-pitahaya-cerise"}`}>
+                  {item.badgeCount > 99 ? "99+" : item.badgeCount}
+                </span>
+              ) : null}
+            </span>
           </motion.button>
         );
       })}

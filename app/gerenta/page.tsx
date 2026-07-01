@@ -16,9 +16,11 @@ import DailyClosureManagerPanel from "@/components/reports/DailyClosureManagerPa
 import TeamChatPanel from "@/components/chat/TeamChatPanel";
 import { exportAnalyticsPDF } from "@/lib/supabase/pdf";
 import KPICard from "@/components/ui/KPICard";
-import TabsNavigation from "@/components/ui/TabsNavigation";
+import ResponsiveDashboardNav from "@/components/ui/ResponsiveDashboardNav";
+import { useTeamNotifications } from "@/components/providers/TeamNotificationsProvider";
 import { isAdvisorChatRole, isTeamChatRole } from "@/lib/chat";
 import { hasApartadoHistory, isActiveStatus, isClosedWonStatus } from "@/lib/prospects/status";
+import { FiBarChart2, FiGrid, FiMessageCircle, FiTarget, FiTrendingUp } from "react-icons/fi";
 import {
   DAILY_CLOSURE_SETUP_MESSAGE,
   DailyClosureEditRequestRow,
@@ -71,6 +73,7 @@ interface TeamDirectoryMember {
 
 export default function GerentaPage() {
   const supabase = createClientSupabase();
+  const { totalUnreadCount } = useTeamNotifications();
   const [currentUserId, setCurrentUserId] = useState("");
   const [currentUserName, setCurrentUserName] = useState("Gerenta");
   const [prospects, setProspects] = useState<ProspectWithAsesor[]>([]);
@@ -405,7 +408,7 @@ export default function GerentaPage() {
   );
 
   return (
-    <div className="relative app-shell w-full overflow-hidden pb-6 text-white">
+    <div className="relative app-shell w-full overflow-hidden pb-24 text-white md:pb-6">
       <div className="pointer-events-none absolute -left-28 -top-20 h-72 w-72 rounded-full bg-[#39065E]/20 blur-[110px]" />
       <div className="pointer-events-none absolute -bottom-24 -right-16 h-80 w-80 rounded-full bg-[#CF3790]/12 blur-[120px]" />
 
@@ -418,15 +421,15 @@ export default function GerentaPage() {
         </div>
 
         <div className="flex w-full justify-start">
-          <TabsNavigation
+          <ResponsiveDashboardNav
             activeTab={tab}
             setActiveTab={setTab}
             items={[
-              { id: "action", label: "Accion diaria" },
-              { id: "pipeline", label: "Pipeline" },
-              { id: "dailyClose", label: "Cierre de dia" },
-              { id: "chat", label: "Chat" },
-              { id: "analytics", label: "Analiticas" },
+              { id: "action", label: "Accion", icon: <FiTarget /> },
+              { id: "pipeline", label: "Pipeline", icon: <FiTrendingUp /> },
+              { id: "dailyClose", label: "Cierre", icon: <FiGrid /> },
+              { id: "chat", label: "Chat", icon: <FiMessageCircle />, badgeCount: totalUnreadCount },
+              { id: "analytics", label: "Analitica", icon: <FiBarChart2 /> },
             ]}
           />
         </div>

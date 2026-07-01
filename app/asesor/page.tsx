@@ -10,8 +10,10 @@ import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
 import DailyClosureAdvisorPanel from "../../components/reports/DailyClosureAdvisorPanel";
 import TeamChatPanel from "@/components/chat/TeamChatPanel";
 import KPICard from "@/components/ui/KPICard";
-import TabsNavigation from "@/components/ui/TabsNavigation";
+import ResponsiveDashboardNav from "@/components/ui/ResponsiveDashboardNav";
+import { useTeamNotifications } from "@/components/providers/TeamNotificationsProvider";
 import { isTeamChatRole } from "@/lib/chat";
+import { FiBarChart2, FiList, FiMessageCircle, FiMoon } from "react-icons/fi";
 import { hasApartadoHistory, hasMissingRequiredProspectFields, isActiveStatus } from "@/lib/prospects/status";
 import {
   DAILY_CLOSURE_SETUP_MESSAGE,
@@ -46,6 +48,7 @@ interface TeamDirectoryMember {
 
 export default function AsesorPage() {
   const supabase = createClientSupabase();
+  const { totalUnreadCount } = useTeamNotifications();
   const [prospects, setProspects] = useState<Prospect[]>([]);
   const [currentUserId, setCurrentUserId] = useState("");
   const [chatTeamMembers, setChatTeamMembers] = useState<TeamDirectoryMember[]>([]);
@@ -290,7 +293,7 @@ export default function AsesorPage() {
   };
 
   return (
-    <div className="app-shell flex w-full flex-col gap-6 pb-6 text-white">
+    <div className="app-shell flex w-full flex-col gap-6 pb-24 text-white md:pb-6">
       <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <KPICard titulo="Total prospectos" valor={kpis.total} glowColor="bg-[#CF3790]/20" />
         <KPICard titulo="Activos" valor={kpis.activos} glowColor="bg-[#F38D62]/20" />
@@ -303,14 +306,14 @@ export default function AsesorPage() {
       </div>
 
       <div className="flex w-full justify-start">
-        <TabsNavigation
+        <ResponsiveDashboardNav
           activeTab={tab}
           setActiveTab={setTab}
           items={[
-            { id: "list", label: "Lista" },
-            { id: "dailyClose", label: "Cierre de dia" },
-            { id: "chat", label: "Chat" },
-            { id: "analytics", label: "Analiticas" },
+            { id: "list", label: "Lista", icon: <FiList /> },
+            { id: "dailyClose", label: "Cierre", icon: <FiMoon /> },
+            { id: "chat", label: "Chat", icon: <FiMessageCircle />, badgeCount: totalUnreadCount },
+            { id: "analytics", label: "Analitica", icon: <FiBarChart2 /> },
           ]}
         />
       </div>
