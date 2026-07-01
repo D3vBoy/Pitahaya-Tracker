@@ -1,5 +1,6 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Manrope, Orbitron } from "next/font/google";
+import PWARegister from "@/components/providers/PWARegister";
 import "./globals.css";
 
 const bodyFont = Manrope({
@@ -17,6 +18,20 @@ const displayFont = Orbitron({
 export const metadata: Metadata = {
   title: "Pitahaya Tracker",
   description: "Control de Prospeccion Comercial",
+  applicationName: "Pitahaya Tracker",
+  manifest: "/manifest.webmanifest",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "default",
+    title: "Pitahaya Tracker",
+  },
+  formatDetection: {
+    telephone: false,
+  },
+};
+
+export const viewport: Viewport = {
+  themeColor: "#CF3790",
 };
 
 export default function RootLayout({
@@ -26,7 +41,10 @@ export default function RootLayout({
 }) {
   return (
     <html lang="es">
-      <body className={`${bodyFont.variable} ${displayFont.variable} text-white`}>{children}</body>
+      <body className={`${bodyFont.variable} ${displayFont.variable} text-white`}>
+        <PWARegister />
+        {children}
+      </body>
     </html>
   );
 }

@@ -15,6 +15,7 @@ import PipelineExcelTable from "@/components/prospects/PipelineExcelTable";
 import { exportAnalyticsPDF } from "@/lib/supabase/pdf";
 import KPICard from "@/components/ui/KPICard";
 import TabsNavigation from "@/components/ui/TabsNavigation";
+import { isActiveStatus } from "@/lib/prospects/status";
 
 interface ProspectWithAsesor {
   id: string;
@@ -104,8 +105,7 @@ export default function GerentaPage() {
           (!filters.apartado ||
             (filters.apartado === "apartados_activos" &&
               p.apartado_realizado &&
-              p.estatus_general !== "Cerrado" &&
-              p.estatus_general !== "Perdido")) &&
+              isActiveStatus(p.estatus_general))) &&
           (!filters.corte || getCorteMonth(p) === filters.corte)
         );
       }),
@@ -169,7 +169,7 @@ export default function GerentaPage() {
   const kpis = useMemo(
     () => ({
       total: filtered.length,
-      activos: filtered.filter((p) => p.estatus_general !== "Cerrado" && p.estatus_general !== "Perdido").length,
+      activos: filtered.filter((p) => isActiveStatus(p.estatus_general)).length,
       probPromedio:
         filtered.length > 0
           ? Math.round(filtered.reduce((a, p) => a + (p.probabilidad_cierre || 0), 0) / filtered.length)

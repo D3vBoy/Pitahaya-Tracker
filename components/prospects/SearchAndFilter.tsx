@@ -1,5 +1,7 @@
 "use client";
 
+import { STATUS_OPTIONS } from "@/lib/prospects/status";
+
 interface FiltersShape {
   estatus?: string;
   probabilidad?: string;
@@ -65,12 +67,9 @@ export default function SearchAndFilter({
           <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Estatus</label>
           <select value={filters?.estatus || ""} onChange={(e) => setFilters?.({ ...filters, estatus: e.target.value })} className="w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
             <option value="">Todos</option>
-            <option value="Nuevo">Nuevo</option>
-            <option value="En Contacto">En Contacto</option>
-            <option value="En seguimiento">En seguimiento</option>
-            <option value="Negociacion">Negociacion</option>
-            <option value="Cerrado">Cerrado</option>
-            <option value="Perdido">Perdido</option>
+            {STATUS_OPTIONS.map((status) => (
+              <option key={status} value={status}>{status}</option>
+            ))}
           </select>
         </div>
         <div className="w-full xl:w-48 flex flex-col gap-2">

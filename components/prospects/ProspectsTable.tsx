@@ -2,6 +2,7 @@
 
 import { format } from "date-fns";
 import { es } from "date-fns/locale";
+import { NOT_AVAILABLE_LABEL, displayValue } from "@/lib/prospects/status";
 
 const TODAY_MS = Date.now();
 
@@ -25,7 +26,7 @@ interface Props {
 
 export default function ProspectsTable({ data = [], loading = false, onRowClick, showAsesorColumn = true }: Props) {
   const formatFecha = (fecha?: string | null) => {
-    if (!fecha) return "-";
+    if (!fecha) return NOT_AVAILABLE_LABEL;
     return format(new Date(fecha), "dd MMM yy", { locale: es });
   };
 
@@ -77,16 +78,16 @@ export default function ProspectsTable({ data = [], loading = false, onRowClick,
                     onClick={() => onRowClick?.(prospecto)}
                   >
                     <td className="px-6 py-4 text-white font-semibold">{prospecto.nombre_cliente}</td>
-                    {showAsesorColumn && <td className="px-6 py-4 text-gray-300">{prospecto.profiles?.full_name || "-"}</td>}
+                    {showAsesorColumn && <td className="px-6 py-4 text-gray-300">{displayValue(prospecto.profiles?.full_name)}</td>}
                     <td className="px-6 py-4 text-gray-300">{formatFecha(prospecto.fecha_primer_contacto)}</td>
                     <td className="px-6 py-4 text-gray-300">{dias} dias</td>
                     <td className="px-6 py-4">
                       <span className="inline-flex rounded-full border border-[#39065E]/40 bg-[#39065E]/20 px-3 py-1 text-xs text-white">
-                        {prospecto.estatus_general}
+                        {displayValue(prospecto.estatus_general)}
                       </span>
                     </td>
                     <td className="px-6 py-4 text-white font-bold">{prospecto.probabilidad_cierre ?? 0}%</td>
-                    <td className="max-w-56 truncate px-6 py-4 text-gray-300">{prospecto.proxima_accion || "-"}</td>
+                    <td className="max-w-56 truncate px-6 py-4 text-gray-300">{displayValue(prospecto.proxima_accion)}</td>
                     <td className="px-6 py-4 text-gray-300">{formatFecha(prospecto.proximo_seguimiento)}</td>
                   </tr>
                 );

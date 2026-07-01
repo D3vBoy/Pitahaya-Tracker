@@ -21,6 +21,7 @@ import {
   FiCalendar,
   FiActivity,
 } from "react-icons/fi";
+import { displayValue, isActiveStatus, isClosedLostStatus, isClosedWonStatus } from "@/lib/prospects/status";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -61,9 +62,9 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
 
   const executive = useMemo(() => {
     const total = prospects.length;
-    const cerrados = prospects.filter((p) => p.estatus_general === "Cerrado").length;
-    const perdidos = prospects.filter((p) => p.estatus_general === "Perdido").length;
-    const activos = prospects.filter((p) => p.estatus_general !== "Cerrado" && p.estatus_general !== "Perdido");
+    const cerrados = prospects.filter((p) => isClosedWonStatus(p.estatus_general)).length;
+    const perdidos = prospects.filter((p) => isClosedLostStatus(p.estatus_general)).length;
+    const activos = prospects.filter((p) => isActiveStatus(p.estatus_general));
 
     const apartadosActivos = activos.filter((p) => p.apartado_realizado).length;
 
@@ -95,7 +96,7 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
     }, 0);
 
     const montoCerrado = prospects
-      .filter((p) => p.estatus_general === "Cerrado")
+      .filter((p) => isClosedWonStatus(p.estatus_general))
       .reduce((acc, p) => acc + (p.monto_total || 0), 0);
 
     const ticketPromedio = total > 0 ? kpis.totalMonto / total : 0;
@@ -103,7 +104,7 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
     const byAsesor: Record<string, { name: string; total: number; weighted: number }> = {};
     prospects.forEach((p) => {
       if (!p.user_id) return;
-      const name = p.profiles?.full_name || "Sin nombre";
+      const name = displayValue(p.profiles?.full_name);
       if (!byAsesor[p.user_id]) {
         byAsesor[p.user_id] = { name, total: 0, weighted: 0 };
       }
@@ -133,7 +134,7 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {};
     prospects.forEach((p) => {
-      const status = p.estatus_general || "Sin definir";
+      const status = displayValue(p.estatus_general || null);
       counts[status] = (counts[status] || 0) + 1;
     });
     return {
@@ -157,7 +158,7 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
       counts[p.user_id] = (counts[p.user_id] || 0) + 1;
     });
     return {
-      labels: asesores.map((a) => a.full_name || "Sin nombre"),
+      labels: asesores.map((a) => displayValue(a.full_name)),
       datasets: [
         {
           label: "Prospectos asignados",
@@ -179,7 +180,7 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
       probs[p.user_id].count++;
     });
     return {
-      labels: asesores.map((a) => a.full_name || "Sin nombre"),
+      labels: asesores.map((a) => displayValue(a.full_name)),
       datasets: [
         {
           label: "Probabilidad promedio (%)",
@@ -214,7 +215,7 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
 
       const bucket = map.get(key);
       if (!bucket) return;
-      const activo = p.estatus_general !== "Cerrado" && p.estatus_general !== "Perdido";
+      const activo = isActiveStatus(p.estatus_general);
       if (activo) {
         bucket.activos += 1;
         if (p.apartado_realizado) bucket.apartadosActivos += 1;
@@ -374,8 +375,8 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
               <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {executive.seguimientosSemana.map((p) => (
                   <div key={p.id} className="rounded-lg border border-pitahaya-border/70 bg-black/20 px-3 py-2.5">
-                    <p className="truncate text-sm font-semibold text-white">{p.nombre_cliente || "Cliente sin nombre"}</p>
-                    <p className="mt-0.5 text-xs text-pitahaya-gray-500">{p.proximo_seguimiento ? new Date(p.proximo_seguimiento).toLocaleDateString("es-MX") : "Sin fecha"}</p>
+                    <p className="truncate text-sm font-semibold text-white">{displayValue(p.nombre_cliente || null)}</p>
+                    <p className="mt-0.5 text-xs text-pitahaya-gray-500">{p.proximo_seguimiento ? new Date(p.proximo_seguimiento).toLocaleDateString("es-MX") : "N/A"}</p>
                     <p className="mt-1 text-xs text-pitahaya-gray-300">Probabilidad: {p.probabilidad_cierre ?? 0}%</p>
                   </div>
                 ))}

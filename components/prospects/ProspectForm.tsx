@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import type { PostgrestError } from "@supabase/supabase-js";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
+import { STATUS_OPTIONS, isAllowedStatus } from "@/lib/prospects/status";
 
 export interface ProspectData {
   id?: string;
@@ -51,7 +52,7 @@ const createEmptyForm = (prospect?: NullablePartialProspectData | null): Prospec
   monto_total: prospect?.monto_total ?? "",
   plan_financiamiento: prospect?.plan_financiamiento ?? "contado",
   estatus_enganche: prospect?.estatus_enganche ?? "pendiente",
-  estatus_general: prospect?.estatus_general ?? "Nuevo",
+  estatus_general: prospect?.estatus_general ?? "",
   proxima_accion: prospect?.proxima_accion ?? "",
   proximo_seguimiento: prospect?.proximo_seguimiento ?? "",
   probabilidad_cierre: prospect?.probabilidad_cierre ?? "",
@@ -163,6 +164,10 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
         throw new Error("El nombre del cliente es obligatorio");
       }
 
+      if (!payload.estatus_general || !isAllowedStatus(payload.estatus_general)) {
+        throw new Error("Debes seleccionar un status valido de seguimiento");
+      }
+
       if (prospect?.id) {
         const { error } = await supabase.from("prospects").update(payload).eq("id", prospect.id);
         if (error) throw new Error(buildSupabaseErrorMessage(error));
@@ -237,8 +242,27 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
               <option value="pendiente">Pendiente</option>
             </select>
           </div>
-          <Input label="Estatus general" name="estatus_general" value={form.estatus_general} onChange={handleChange} />
-          <Input label="Próxima acción" name="proxima_accion" value={form.proxima_accion} onChange={handleChange} />
+          <div className="flex flex-col gap-1.5 md:col-span-2">
+            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Status de seguimiento *</label>
+            <select
+              name="estatus_general"
+              value={form.estatus_general}
+              onChange={handleChange}
+              required
+              className={inputClass}
+            >
+              <option value="">Selecciona un status obligatorio</option>
+              {STATUS_OPTIONS.map((status) => (
+                <option key={status} value={status}>
+                  {status}
+                </option>
+              ))}
+              {form.estatus_general && !isAllowedStatus(form.estatus_general) ? (
+                <option value={form.estatus_general}>{form.estatus_general}</option>
+              ) : null}
+            </select>
+          </div>
+          <Input label="Próxima acción" name="proxima_accion" value={form.proxima_accion} onChange={handleChange} placeholder="Ejemplo: Llamar el martes o N/A" />
           <div className="flex flex-col gap-1.5">
             <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Próximo seguimiento</label>
             <input type="date" name="proximo_seguimiento" value={form.proximo_seguimiento} onChange={handleChange} className={inputClass} />
@@ -269,7 +293,7 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
 
         <div className="flex flex-col gap-1.5">
           <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Observaciones</label>
-          <textarea name="observaciones" value={form.observaciones} onChange={handleChange} rows={3} className={inputClass} />
+          <textarea name="observaciones" value={form.observaciones} onChange={handleChange} rows={3} placeholder="Si no aplica, escribe N/A" className={inputClass} />
         </div>
 
         {isGerenta && (
@@ -302,7 +326,7 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
       {showDeleteConfirm && (
         <div className="fixed inset-0 z-60 flex items-center justify-center p-4">
           <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
-          <div className="premium-panel relative w-full max-w-md rounded-[1.5rem] border border-pitahaya-border p-6 shadow-[0_24px_80px_rgba(10,6,18,0.5)]">
+          <div className="premium-panel relative w-full max-w-md rounded-3xl border border-pitahaya-border p-6 shadow-[0_24px_80px_rgba(10,6,18,0.5)]">
             <h3 className="mb-2 text-lg font-bold text-white">Eliminar prospecto</h3>
             <p className="mb-6 text-sm text-pitahaya-gray-500">¿Estás seguro de que deseas eliminar este prospecto? Esta acción no se puede deshacer.</p>
             <div className="flex justify-end gap-3">

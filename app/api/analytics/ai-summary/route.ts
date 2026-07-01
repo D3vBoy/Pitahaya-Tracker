@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isActiveStatus } from "@/lib/prospects/status";
 
 interface ProspectInput {
   nombre_cliente?: string;
@@ -27,9 +28,7 @@ export async function POST(request: Request) {
     const prospects = Array.isArray(body.prospects) ? body.prospects : [];
     const corte = body.corte || "General";
 
-    const activos = prospects.filter(
-      (p) => p.estatus_general !== "Cerrado" && p.estatus_general !== "Perdido"
-    );
+    const activos = prospects.filter((p) => isActiveStatus(p.estatus_general));
 
     const compactData = activos.slice(0, 180).map((p) => ({
       cliente: p.nombre_cliente || "Sin nombre",
@@ -45,11 +44,26 @@ export async function POST(request: Request) {
     const prompt = [
       "Eres director comercial experto en seguimiento de pipeline inmobiliario.",
       `Genera un analisis ejecutivo para el corte mensual: ${corte}.`,
-      "Responde en espanol, maximo 350 palabras, con este formato:",
-      "1) Resumen ejecutivo (3 bullets)",
-      "2) Riesgos criticos (3 bullets)",
-      "3) Oportunidades de cierre (3 bullets)",
-      "4) Recomendaciones accionables para 7 dias (5 bullets con verbo de accion)",
+      "Responde en espanol, maximo 350 palabras.",
+      "Usa este formato exacto y ordenado:",
+      "1) Resumen ejecutivo",
+      "- bullet",
+      "- bullet",
+      "- bullet",
+      "2) Riesgos criticos",
+      "- bullet",
+      "- bullet",
+      "- bullet",
+      "3) Oportunidades de cierre",
+      "- bullet",
+      "- bullet",
+      "- bullet",
+      "4) Recomendaciones accionables para 7 dias",
+      "- bullet con verbo",
+      "- bullet con verbo",
+      "- bullet con verbo",
+      "- bullet con verbo",
+      "- bullet con verbo",
       "Usa tono profesional, concreto y sin relleno.",
       "Data de seguimientos activos en JSON:",
       JSON.stringify(compactData),

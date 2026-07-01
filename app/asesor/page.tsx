@@ -9,6 +9,7 @@ import ProspectsTable from "@/components/prospects/ProspectsTable";
 import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
 import KPICard from "@/components/ui/KPICard";
 import TabsNavigation from "@/components/ui/TabsNavigation";
+import { isActiveStatus } from "@/lib/prospects/status";
 
 interface Prospect {
   id: string;
@@ -67,8 +68,7 @@ export default function AsesorPage() {
           !filters.apartado ||
           (filters.apartado === "apartados_activos" &&
             p.apartado_realizado &&
-            p.estatus_general !== "Cerrado" &&
-            p.estatus_general !== "Perdido");
+            isActiveStatus(p.estatus_general));
         return nameMatch && estatusMatch && probMatch && apartadoMatch;
       }),
     [prospects, filters]
@@ -78,7 +78,7 @@ export default function AsesorPage() {
     const total = filtered.length;
     const avgProb = total > 0 ? filtered.reduce((a, p) => a + (p.probabilidad_cierre || 0), 0) / total : 0;
     const montoTotal = filtered.reduce((a, p) => a + (p.monto_total || 0), 0);
-    const activos = filtered.filter((p) => p.estatus_general !== "Cerrado" && p.estatus_general !== "Perdido").length;
+    const activos = filtered.filter((p) => isActiveStatus(p.estatus_general)).length;
     return { total, avgProb, montoTotal, activos };
   }, [filtered]);
 
