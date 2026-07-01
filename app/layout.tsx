@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Orbitron } from "next/font/google";
 import PWARegister from "@/components/providers/PWARegister";
+import PWAInstallPrompt from "@/components/providers/PWAInstallPrompt";
 import "./globals.css";
 
 const bodyFont = Manrope({
@@ -43,6 +44,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={`${bodyFont.variable} ${displayFont.variable} text-white`}>
         <PWARegister />
+        <PWAInstallPrompt />
         {children}
       </body>
     </html>
