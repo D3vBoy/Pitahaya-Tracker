@@ -1,15 +1,27 @@
 @import "tailwindcss";
 
 :root {
+  color-scheme: light;
+  --app-bg: #f6ecf7;
+  --app-surface: rgba(255, 255, 255, 0.88);
+  --app-stroke: rgba(185, 134, 208, 0.28);
+  --app-panel: linear-gradient(180deg, rgba(255,255,255,0.96) 0%, rgba(247,239,250,0.95) 100%);
+  --app-text: #1f1130;
+}
+
+html.dark,
+html[data-theme="dark"] {
   color-scheme: dark;
   --app-bg: #07040f;
   --app-surface: rgba(18, 12, 28, 0.76);
   --app-stroke: rgba(138, 86, 189, 0.22);
+  --app-panel: linear-gradient(180deg, rgba(29, 18, 45, 0.82) 0%, rgba(15, 11, 24, 0.9) 100%);
+  --app-text: #f3f4f6;
 }
 
 html {
   min-height: 100%;
-  background: #07040f;
+  background: var(--app-bg);
   scroll-behavior: smooth;
 }
 
@@ -20,7 +32,7 @@ body {
     radial-gradient(circle at 88% -10%, rgba(184, 40, 232, 0.25), transparent 42%),
     radial-gradient(circle at 50% 120%, rgba(57, 6, 94, 0.38), transparent 56%),
     var(--app-bg);
-  color: #f3f4f6;
+  color: var(--app-text);
   font-family: var(--font-body), system-ui, sans-serif;
   overflow-x: hidden;
   -webkit-font-smoothing: antialiased;
@@ -55,7 +67,7 @@ a {
 }
 
 .premium-panel {
-  background: linear-gradient(180deg, rgba(29, 18, 45, 0.82) 0%, rgba(15, 11, 24, 0.9) 100%);
+  background: var(--app-panel);
   border: 1px solid var(--app-stroke);
   box-shadow: 0 12px 40px rgba(19, 14, 18, 0.45);
   backdrop-filter: blur(16px);

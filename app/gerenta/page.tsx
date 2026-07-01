@@ -13,9 +13,11 @@ import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
 import PipelineExcelTable from "@/components/prospects/PipelineExcelTable";
 import ActionCenterDashboard from "@/components/prospects/ActionCenterDashboard";
 import DailyClosureManagerPanel from "@/components/reports/DailyClosureManagerPanel";
+import TeamChatPanel from "@/components/chat/TeamChatPanel";
 import { exportAnalyticsPDF } from "@/lib/supabase/pdf";
 import KPICard from "@/components/ui/KPICard";
 import TabsNavigation from "@/components/ui/TabsNavigation";
+import { isAdvisorChatRole, isTeamChatRole } from "@/lib/chat";
 import { hasApartadoHistory, isActiveStatus, isClosedWonStatus } from "@/lib/prospects/status";
 import {
   DAILY_CLOSURE_SETUP_MESSAGE,
@@ -61,13 +63,22 @@ interface Asesor {
   full_name: string | null;
 }
 
+interface TeamDirectoryMember {
+  id: string;
+  full_name: string | null;
+  role?: string | null;
+}
+
 export default function GerentaPage() {
   const supabase = createClientSupabase();
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [currentUserName, setCurrentUserName] = useState("Gerenta");
   const [prospects, setProspects] = useState<ProspectWithAsesor[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<Partial<ProspectWithAsesor> | null>(null);
   const [asesores, setAsesores] = useState<Asesor[]>([]);
+  const [chatTeamMembers, setChatTeamMembers] = useState<TeamDirectoryMember[]>([]);
   const [dailyReports, setDailyReports] = useState<DailyClosureReportRow[]>([]);
   const [monthlyDailyReports, setMonthlyDailyReports] = useState<DailyClosureReportRow[]>([]);
   const [globalReport, setGlobalReport] = useState<DailyClosureGlobalReportRow | null>(null);
@@ -77,7 +88,7 @@ export default function GerentaPage() {
   const [dailyReportsLoading, setDailyReportsLoading] = useState(true);
   const [globalReportSaving, setGlobalReportSaving] = useState(false);
   const [selectedReportDate, setSelectedReportDate] = useState(getTodayDateKey());
-  const [tab, setTab] = useState<"action" | "pipeline" | "dailyClose" | "analytics">("action");
+  const [tab, setTab] = useState<"action" | "pipeline" | "dailyClose" | "chat" | "analytics">("action");
   const [filters, setFilters] = useState({
     search: "",
     estatus: "",
@@ -105,10 +116,35 @@ export default function GerentaPage() {
     setLoading(false);
   }, [supabase]);
 
-  const fetchAsesores = useCallback(async () => {
-    const { data } = await supabase.from("profiles").select("id, full_name").eq("role", "asesor");
-    setAsesores(data || []);
+  const loadTeamMembers = useCallback(async (excludeUserId?: string) => {
+    const directoryResponse = await supabase.rpc("get_team_chat_directory");
+
+    if (!directoryResponse.error && Array.isArray(directoryResponse.data)) {
+      return (directoryResponse.data as TeamDirectoryMember[])
+        .filter((member) => member.id !== excludeUserId && isTeamChatRole(member.role))
+        .sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "es-MX"));
+    }
+
+    const { data } = await supabase.from("profiles").select("id, full_name, role");
+    return ((data || []) as TeamDirectoryMember[])
+      .filter((member) => member.id !== excludeUserId && isTeamChatRole(member.role))
+      .sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "es-MX"));
   }, [supabase]);
+
+  const fetchCurrentUser = useCallback(async () => {
+    const { data } = await supabase.auth.getUser();
+    if (!data.user) return;
+    setCurrentUserId(data.user.id);
+    const { data: profile } = await supabase.from("profiles").select("full_name").eq("id", data.user.id).maybeSingle();
+    setCurrentUserName(profile?.full_name || "Gerenta");
+    const members = await loadTeamMembers(data.user.id);
+    setChatTeamMembers(members);
+    setAsesores(
+      members
+        .filter((member) => isAdvisorChatRole(member.role))
+        .map((member) => ({ id: member.id, full_name: member.full_name }))
+    );
+  }, [loadTeamMembers, supabase]);
 
   const fetchDailyReports = useCallback(async () => {
     if (!dailyClosureAvailable && dailyClosureMessage) {
@@ -161,8 +197,8 @@ export default function GerentaPage() {
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchProspects();
-    void fetchAsesores();
-  }, [fetchProspects, fetchAsesores]);
+    void fetchCurrentUser();
+  }, [fetchProspects, fetchCurrentUser]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => {
@@ -389,6 +425,7 @@ export default function GerentaPage() {
               { id: "action", label: "Accion diaria" },
               { id: "pipeline", label: "Pipeline" },
               { id: "dailyClose", label: "Cierre de dia" },
+              { id: "chat", label: "Chat" },
               { id: "analytics", label: "Analiticas" },
             ]}
           />
@@ -465,6 +502,14 @@ export default function GerentaPage() {
                 onApproveRequest={handleApproveEditRequest}
                 onRejectRequest={handleRejectEditRequest}
                 unavailableMessage={dailyClosureMessage}
+              />
+            ) : tab === "chat" ? (
+              <TeamChatPanel
+                currentUserId={currentUserId}
+                currentUserName={currentUserName}
+                role="gerenta"
+                advisors={asesores}
+                teamMembers={chatTeamMembers}
               />
             ) : (
               <ActionCenterDashboard

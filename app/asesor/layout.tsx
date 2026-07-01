@@ -2,6 +2,8 @@
 import { useRouter } from "next/navigation";
 import { createClientSupabase } from "@/lib/supabase/client";
 import { FiLogOut } from "react-icons/fi";
+import SettingsModal from "@/components/settings/SettingsModal";
+import TeamNotificationsProvider from "@/components/providers/TeamNotificationsProvider";
 
 export default function AsesorLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
@@ -17,6 +19,7 @@ export default function AsesorLayout({ children }: { children: React.ReactNode }
 
   return (
     <div className="min-h-screen flex flex-col bg-transparent">
+      <TeamNotificationsProvider />
       <header className="sticky top-0 z-40 border-b border-pitahaya-border/60 bg-pitahaya-surface/80 backdrop-blur-2xl">
         <div className="mx-auto flex h-20 w-full max-w-[1600px] items-center justify-between px-4 sm:px-6 lg:px-10">
           <div className="flex items-center gap-3">
@@ -30,13 +33,16 @@ export default function AsesorLayout({ children }: { children: React.ReactNode }
               <p className="text-[11px] uppercase tracking-[0.28em] text-pitahaya-gray-500">Panel de Asesor</p>
             </div>
           </div>
-          <button
-            onClick={handleLogout}
-            className="inline-flex items-center gap-2 rounded-xl border border-pitahaya-border bg-pitahaya-blackberry/70 px-4 py-2 text-sm font-medium text-pitahaya-gray-300 transition-all hover:border-pitahaya-cerise/50 hover:bg-pitahaya-cerise/10 hover:text-white"
-          >
-            <FiLogOut size={16} />
-            <span className="hidden sm:inline">Cerrar Sesión</span>
-          </button>
+          <div className="flex items-center gap-2">
+            <SettingsModal />
+            <button
+              onClick={handleLogout}
+              className="inline-flex items-center gap-2 rounded-xl border border-pitahaya-border bg-pitahaya-blackberry/70 px-4 py-2 text-sm font-medium text-pitahaya-gray-300 transition-all hover:border-pitahaya-cerise/50 hover:bg-pitahaya-cerise/10 hover:text-white"
+            >
+              <FiLogOut size={16} />
+              <span className="hidden sm:inline">Cerrar Sesión</span>
+            </button>
+          </div>
         </div>
       </header>
       <main className="mx-auto w-full max-w-[1600px] flex-1 px-4 py-6 sm:px-6 lg:px-10 lg:py-8">

@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Manrope, Orbitron } from "next/font/google";
+import AppProviders from "@/components/providers/AppProviders";
 import PWARegister from "@/components/providers/PWARegister";
 import PWAInstallPrompt from "@/components/providers/PWAInstallPrompt";
 import "./globals.css";
@@ -43,9 +44,11 @@ export default function RootLayout({
   return (
     <html lang="es" data-scroll-behavior="smooth">
       <body className={`${bodyFont.variable} ${displayFont.variable} text-white`}>
-        <PWARegister />
-        <PWAInstallPrompt />
-        {children}
+        <AppProviders>
+          <PWARegister />
+          <PWAInstallPrompt />
+          {children}
+        </AppProviders>
       </body>
     </html>
   );

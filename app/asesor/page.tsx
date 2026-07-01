@@ -8,8 +8,10 @@ import SearchAndFilter from "@/components/prospects/SearchAndFilter";
 import ProspectsTable from "@/components/prospects/ProspectsTable";
 import AnalyticsDashboard from "@/components/analytics/AnalyticsDashboard";
 import DailyClosureAdvisorPanel from "../../components/reports/DailyClosureAdvisorPanel";
+import TeamChatPanel from "@/components/chat/TeamChatPanel";
 import KPICard from "@/components/ui/KPICard";
 import TabsNavigation from "@/components/ui/TabsNavigation";
+import { isTeamChatRole } from "@/lib/chat";
 import { hasApartadoHistory, hasMissingRequiredProspectFields, isActiveStatus } from "@/lib/prospects/status";
 import {
   DAILY_CLOSURE_SETUP_MESSAGE,
@@ -36,9 +38,17 @@ interface Prospect {
   user_id: string;
 }
 
+interface TeamDirectoryMember {
+  id: string;
+  full_name: string | null;
+  role?: string | null;
+}
+
 export default function AsesorPage() {
   const supabase = createClientSupabase();
   const [prospects, setProspects] = useState<Prospect[]>([]);
+  const [currentUserId, setCurrentUserId] = useState("");
+  const [chatTeamMembers, setChatTeamMembers] = useState<TeamDirectoryMember[]>([]);
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [editingProspect, setEditingProspect] = useState<Partial<Prospect> | null>(null);
@@ -48,11 +58,12 @@ export default function AsesorPage() {
   const [dailyRequests, setDailyRequests] = useState<DailyClosureEditRequestRow[]>([]);
   const [dailyClosureAvailable, setDailyClosureAvailable] = useState(true);
   const [dailyClosureMessage, setDailyClosureMessage] = useState("");
+  const [teamDirectoryHint, setTeamDirectoryHint] = useState("");
   const [selectedReportDate, setSelectedReportDate] = useState(getTodayDateKey());
   const [dailyReportSubmitting, setDailyReportSubmitting] = useState(false);
   const [requestingPermission, setRequestingPermission] = useState(false);
   const [advisorName, setAdvisorName] = useState("Asesor");
-  const [tab, setTab] = useState<"list" | "dailyClose" | "analytics">("list");
+  const [tab, setTab] = useState<"list" | "dailyClose" | "chat" | "analytics">("list");
   const [filters, setFilters] = useState({
     search: "",
     estatus: "",
@@ -64,7 +75,32 @@ export default function AsesorPage() {
   const fetchProspects = useCallback(async () => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
-    const [{ data: prospectsData }, dailyReportsResponse, { data: profileData }, requestsResponse] = await Promise.all([
+    setCurrentUserId(user.id);
+    const loadTeamMembers = async () => {
+      const directoryResponse = await supabase.rpc("get_team_chat_directory");
+
+      if (!directoryResponse.error && Array.isArray(directoryResponse.data)) {
+        setTeamDirectoryHint("");
+        return (directoryResponse.data as TeamDirectoryMember[])
+          .filter((member) => member.id !== user.id && isTeamChatRole(member.role))
+          .sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "es-MX"));
+      }
+
+      if (directoryResponse.error) {
+        setTeamDirectoryHint("Para habilitar mensajes entre asesores debes ejecutar la actualizacion SQL del directorio de chat en Supabase.");
+      }
+
+      const { data: profileRows } = await supabase
+        .from("profiles")
+        .select("id, full_name, role")
+        .neq("id", user.id);
+
+      return ((profileRows || []) as TeamDirectoryMember[])
+        .filter((member) => isTeamChatRole(member.role))
+        .sort((a, b) => (a.full_name || "").localeCompare(b.full_name || "", "es-MX"));
+    };
+
+    const [{ data: prospectsData }, dailyReportsResponse, { data: profileData }, requestsResponse, teamMembersData] = await Promise.all([
       supabase
         .from("prospects")
         .select("*")
@@ -81,6 +117,7 @@ export default function AsesorPage() {
         .select("*")
         .eq("requested_by", user.id)
         .order("created_at", { ascending: false }),
+      loadTeamMembers(),
     ]);
 
     const dailyReportsError = dailyReportsResponse.error;
@@ -93,6 +130,7 @@ export default function AsesorPage() {
     setDailyReports(missingClosureTables ? [] : ((dailyReportsResponse.data || []) as DailyClosureReportRow[]));
     setDailyRequests(missingClosureTables ? [] : ((requestsResponse.data || []) as DailyClosureEditRequestRow[]));
     setAdvisorName(profileData?.full_name || "Asesor");
+    setChatTeamMembers(teamMembersData || []);
     setDailyClosureAvailable(!missingClosureTables);
     setDailyClosureMessage(missingClosureTables ? DAILY_CLOSURE_SETUP_MESSAGE : "");
     setLoading(false);
@@ -271,6 +309,7 @@ export default function AsesorPage() {
           items={[
             { id: "list", label: "Lista" },
             { id: "dailyClose", label: "Cierre de dia" },
+            { id: "chat", label: "Chat" },
             { id: "analytics", label: "Analiticas" },
           ]}
         />
@@ -312,6 +351,14 @@ export default function AsesorPage() {
           onSave={handleSaveDailyReport}
           onRequestPermission={handleRequestDailyReportEdit}
           unavailableMessage={dailyClosureMessage}
+        />
+      ) : tab === "chat" ? (
+        <TeamChatPanel
+          currentUserId={currentUserId}
+          currentUserName={advisorName}
+          role="asesor"
+          teamMembers={chatTeamMembers}
+          directoryHint={teamDirectoryHint}
         />
       ) : (
         <div className="space-y-6">
