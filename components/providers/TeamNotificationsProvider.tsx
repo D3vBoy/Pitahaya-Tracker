@@ -79,8 +79,6 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
           body,
           tag: "pitahaya-chat-live",
           icon: "/api/pwa-icon/192",
-          badge: "/api/pwa-icon/192",
-          vibrate: [180, 80, 180],
           data: { url: window.location.pathname },
         });
         return;
