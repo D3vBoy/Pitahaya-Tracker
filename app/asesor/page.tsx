@@ -147,6 +147,39 @@ export default function AsesorPage() {
     setLoading(false);
   }, [supabase]);
 
+  const fetchDailyReports = useCallback(async () => {
+    if (!dailyClosureAvailable && dailyClosureMessage) {
+      return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    const [dailyReportsResponse, requestsResponse] = await Promise.all([
+      supabase
+        .from("daily_closure_reports")
+        .select("*")
+        .eq("user_id", user.id)
+        .order("report_date", { ascending: false }),
+      supabase
+        .from("daily_closure_edit_requests")
+        .select("*")
+        .eq("requested_by", user.id)
+        .order("created_at", { ascending: false }),
+    ]);
+
+    const dailyReportsError = dailyReportsResponse.error;
+    const requestsError = requestsResponse.error;
+    const missingClosureTables =
+      isMissingDailyClosureRelationError(dailyReportsError) ||
+      isMissingDailyClosureRelationError(requestsError);
+
+    setDailyReports(missingClosureTables ? [] : ((dailyReportsResponse.data || []) as DailyClosureReportRow[]));
+    setDailyRequests(missingClosureTables ? [] : ((requestsResponse.data || []) as DailyClosureEditRequestRow[]));
+    setDailyClosureAvailable(!missingClosureTables);
+    setDailyClosureMessage(missingClosureTables ? DAILY_CLOSURE_SETUP_MESSAGE : "");
+  }, [dailyClosureAvailable, dailyClosureMessage, supabase]);
+
   const handleSaveDailyReport = async (reportDate: string, values: DailyClosureFormValues, reportId?: string) => {
     if (!dailyClosureAvailable) {
       throw new Error(DAILY_CLOSURE_SETUP_MESSAGE);
@@ -186,12 +219,7 @@ export default function AsesorPage() {
             .maybeSingle();
 
       if (error) throw new Error(error.message);
-      if (!data) throw new Error("No se pudo registrar el cierre de día");
-
-      setDailyReports((prev) => {
-        const next = prev.filter((item) => item.id !== data.id && item.report_date !== data.report_date);
-        return [data as DailyClosureReportRow, ...next].sort((a, b) => b.report_date.localeCompare(a.report_date));
-      });
+      await fetchDailyReports();
     } catch (error) {
       throw new Error(error instanceof Error ? error.message : "No se pudo registrar el cierre de día");
     } finally {
