@@ -78,7 +78,6 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
         await registration.showNotification(title, {
           body,
           tag: "pitahaya-chat-live",
-          renotify: true,
           icon: "/api/pwa-icon/192",
           badge: "/api/pwa-icon/192",
           vibrate: [180, 80, 180],
