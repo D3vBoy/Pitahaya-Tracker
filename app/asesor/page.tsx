@@ -199,15 +199,22 @@ export default function AsesorPage() {
         updated_at: new Date().toISOString(),
       };
 
-      const { error } = await supabase
-        .from("daily_closure_reports")
-        .upsert(
-          {
-            ...payload,
-            edit_unlocked_until: null,
-          },
-          { onConflict: "user_id,report_date" }
-        );
+      const existingReport = reportId || dailyReports.find((report) => report.report_date === reportDate)?.id || null;
+
+      const { error } = existingReport
+        ? await supabase
+            .from("daily_closure_reports")
+            .update({
+              ...payload,
+              edit_unlocked_until: null,
+            })
+            .eq("id", existingReport)
+        : await supabase
+            .from("daily_closure_reports")
+            .insert({
+              ...payload,
+              edit_unlocked_until: null,
+            });
 
       if (error) throw new Error(error.message);
       await fetchDailyReports();
