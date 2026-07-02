@@ -222,6 +222,25 @@ export default function GerentaPage() {
   }, [dailyClosureAvailable, dailyClosureMessage, selectedReportDate, supabase]);
 
   useEffect(() => {
+    if (!dailyClosureAvailable) return;
+
+    const channel = supabase
+      .channel("daily-closure-reports-live")
+      .on(
+        "postgres_changes",
+        { event: "*", schema: "public", table: "daily_closure_reports" },
+        () => {
+          void fetchDailyReports();
+        }
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [dailyClosureAvailable, fetchDailyReports, supabase]);
+
+  useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     void fetchProspects();
     void fetchCurrentUser();
