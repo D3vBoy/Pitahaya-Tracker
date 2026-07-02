@@ -159,7 +159,7 @@ export default function AsesorPage() {
 
     setDailyReportSubmitting(true);
     try {
-      const { data, error } = await supabase.rpc("save_daily_closure_report", {
+      const rpcResult = await supabase.rpc("save_daily_closure_report", {
         p_report_date: reportDate,
         p_leads_nuevos: values.leads_nuevos,
         p_llamadas_realizadas: values.llamadas_realizadas,
@@ -170,6 +170,39 @@ export default function AsesorPage() {
         p_enganches_del_mes: values.enganches_del_mes,
         p_prospectos_calientes: values.prospectos_calientes,
       });
+
+      const saveDirectly = async () => {
+        const payload = {
+          user_id: user.id,
+          report_date: reportDate,
+          ...values,
+          updated_at: new Date().toISOString(),
+        };
+
+        return reportId
+          ? supabase
+              .from("daily_closure_reports")
+              .update({
+                ...payload,
+                edit_unlocked_until: null,
+              })
+              .eq("id", reportId)
+              .select("*")
+              .single()
+          : supabase
+              .from("daily_closure_reports")
+              .insert({
+                ...payload,
+                edit_unlocked_until: null,
+              })
+              .select("*")
+              .single();
+      };
+
+      const { data, error } = rpcResult.error
+        && /could not find the function|schema cache|function public\.save_daily_closure_report/i.test(rpcResult.error.message)
+          ? await saveDirectly()
+          : rpcResult;
 
       if (error) throw new Error(error.message);
       if (!data) throw new Error("No se pudo registrar el cierre de día");
