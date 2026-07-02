@@ -221,13 +221,27 @@ export default function AsesorPage() {
             .maybeSingle();
 
       if (error) throw new Error(error.message);
-      if (!data) {
-        throw new Error("No se guardaron cambios en el cierre. Verifica permisos de edición para esta fecha.");
+      let persistedReport = data as DailyClosureReportRow | null;
+
+      if (!persistedReport) {
+        const { data: fallbackReport, error: fallbackError } = await supabase
+          .from("daily_closure_reports")
+          .select("*")
+          .eq("user_id", user.id)
+          .eq("report_date", reportDate)
+          .maybeSingle();
+
+        if (fallbackError) throw new Error(fallbackError.message);
+        if (!fallbackReport) {
+          throw new Error("No se guardaron cambios en el cierre. Verifica permisos de edición para esta fecha.");
+        }
+
+        persistedReport = fallbackReport as DailyClosureReportRow;
       }
 
       setDailyReports((prev) => {
-        const next = prev.filter((report) => report.id !== data.id && report.report_date !== data.report_date);
-        return [data as DailyClosureReportRow, ...next].sort((a, b) => b.report_date.localeCompare(a.report_date));
+        const next = prev.filter((report) => report.id !== persistedReport.id && report.report_date !== persistedReport.report_date);
+        return [persistedReport, ...next].sort((a, b) => b.report_date.localeCompare(a.report_date));
       });
 
       await fetchDailyReports();
