@@ -159,31 +159,23 @@ export default function AsesorPage() {
 
     setDailyReportSubmitting(true);
     try {
-      const query = reportId
-        ? supabase
-            .from("daily_closure_reports")
-            .update({
-              ...values,
-              updated_at: new Date().toISOString(),
-              edit_unlocked_until: reportDate === getTodayDateKey() ? null : null,
-            })
-            .eq("id", reportId)
-            .select("*")
-            .single()
-        : supabase
-            .from("daily_closure_reports")
-            .insert({
-              user_id: user.id,
-              report_date: reportDate,
-              ...values,
-              updated_at: new Date().toISOString(),
-            })
-            .select("*")
-            .single();
-
-      const { data, error } = await query;
+      const { data, error } = await supabase
+        .from("daily_closure_reports")
+        .upsert(
+          {
+            user_id: user.id,
+            report_date: reportDate,
+            ...values,
+            updated_at: new Date().toISOString(),
+            edit_unlocked_until: null,
+          },
+          { onConflict: "user_id,report_date" }
+        )
+        .select("*")
+        .maybeSingle();
 
       if (error) throw new Error(error.message);
+      if (!data) throw new Error("No se pudo registrar el cierre de día");
 
       setDailyReports((prev) => {
         const next = prev.filter((item) => item.id !== data.id && item.report_date !== data.report_date);
