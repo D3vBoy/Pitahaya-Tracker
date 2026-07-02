@@ -14,7 +14,12 @@ import ResponsiveDashboardNav from "@/components/ui/ResponsiveDashboardNav";
 import { useTeamNotifications } from "@/components/providers/TeamNotificationsProvider";
 import { isTeamChatRole } from "@/lib/chat";
 import { FiBarChart2, FiList, FiMessageCircle, FiMoon } from "react-icons/fi";
-import { hasApartadoHistory, hasMissingRequiredProspectFields, isActiveStatus } from "@/lib/prospects/status";
+import {
+  getPipelineBreakdownTotals,
+  hasApartadoHistory,
+  hasMissingRequiredProspectFields,
+  isActiveStatus,
+} from "@/lib/prospects/status";
 import {
   DAILY_CLOSURE_SETUP_MESSAGE,
   DailyClosureEditRequestRow,
@@ -33,10 +38,13 @@ interface Prospect {
   proximo_seguimiento: string | null;
   proxima_accion: string | null;
   monto_total: number | null;
+  metros_cuadrados_tentativos?: number | null;
+  metraje_exacto?: number | null;
   apartado_realizado: boolean;
   fecha_apartado: string | null;
   fecha_enganche: string | null;
   firma_pcv: string | null;
+  fecha_cierre?: string | null;
   user_id: string;
 }
 
@@ -252,8 +260,8 @@ export default function AsesorPage() {
           (p.probabilidad_cierre !== null && p.probabilidad_cierre >= filters.probabilidadMin);
         const apartadoMatch =
           !filters.apartado ||
-          ((filters.apartado === "apartado_historial" || filters.apartado === "apartados_activos") &&
-            hasApartadoHistory(p));
+          (filters.apartado === "apartado_historial" && hasApartadoHistory(p)) ||
+          (filters.apartado === "apartados_activos" && hasApartadoHistory(p) && !p.fecha_cierre);
         return nameMatch && estatusMatch && probMatch && apartadoMatch;
       }),
     [prospects, filters]
@@ -266,6 +274,16 @@ export default function AsesorPage() {
     const activos = filtered.filter((p) => isActiveStatus(p.estatus_general)).length;
     return { total, avgProb, montoTotal, activos };
   }, [filtered]);
+
+  const pipelineBreakdown = useMemo(() => getPipelineBreakdownTotals(filtered), [filtered]);
+
+  const formatShortCurrency = (value: number) =>
+    value.toLocaleString("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      maximumFractionDigits: 0,
+      notation: "compact",
+    });
 
   const searchTerm = filters.search;
   const setSearchTerm = (value: string) => {
@@ -294,16 +312,18 @@ export default function AsesorPage() {
 
   return (
     <div className="app-shell flex w-full flex-col gap-6 pb-24 text-white md:pb-6">
-      <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <KPICard titulo="Total prospectos" valor={kpis.total} glowColor="bg-[#CF3790]/20" />
-        <KPICard titulo="Activos" valor={kpis.activos} glowColor="bg-[#F38D62]/20" />
-        <KPICard titulo="Prob. promedio" valor={`${kpis.avgProb.toFixed(1)}%`} />
-        <KPICard
-          titulo="Monto pipeline"
-          valor={`$${kpis.montoTotal.toLocaleString("es-MX")}`}
-          textAccent="text-emerald-300"
-        />
-      </div>
+      {tab === "list" && (
+        <div className="grid w-full grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+          <KPICard titulo="Total prospectos" valor={kpis.total} glowColor="bg-[#CF3790]/20" />
+          <KPICard titulo="Activos" valor={kpis.activos} glowColor="bg-[#F38D62]/20" />
+          <KPICard titulo="Prob. promedio" valor={`${kpis.avgProb.toFixed(1)}%`} />
+          <KPICard
+            titulo="Pipeline R/P/T"
+            valor={`${formatShortCurrency(pipelineBreakdown.cerradoMonto)} / ${formatShortCurrency(pipelineBreakdown.procesoMonto)} / ${formatShortCurrency(pipelineBreakdown.tentativoMonto)}`}
+            textAccent="text-emerald-300"
+          />
+        </div>
+      )}
 
       <div className="flex w-full justify-start">
         <ResponsiveDashboardNav

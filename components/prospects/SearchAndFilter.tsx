@@ -8,6 +8,8 @@ interface FiltersShape {
   asesor?: string;
   apartado?: string;
   corte?: string;
+  segmento?: string;
+  periodo?: string;
 }
 
 interface Props {
@@ -18,6 +20,8 @@ interface Props {
   asesores?: { id: string; full_name: string | null }[];
   showAsesorFilter?: boolean;
   showCorteFilter?: boolean;
+  showPipelineSegmentFilter?: boolean;
+  showPeriodFilter?: boolean;
   corteOptions?: Array<{ value: string; label: string }>;
   onNewProspect?: () => void;
 }
@@ -30,6 +34,8 @@ export default function SearchAndFilter({
   asesores = [],
   showAsesorFilter = true,
   showCorteFilter = false,
+  showPipelineSegmentFilter = false,
+  showPeriodFilter = false,
   corteOptions = [],
   onNewProspect,
 }: Props) {
@@ -86,8 +92,39 @@ export default function SearchAndFilter({
           <select value={filters?.apartado || ""} onChange={(e) => setFilters?.({ ...filters, apartado: e.target.value })} className="pitahaya-select w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none">
             <option value="">Todos</option>
             <option value="apartado_historial">Apartado realizado (incluye enganche/firma y cierre)</option>
+            <option value="apartados_activos">Apartados activos (sin cierre)</option>
           </select>
         </div>
+        {showPipelineSegmentFilter && (
+          <div className="w-full xl:w-60 flex flex-col gap-2">
+            <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Segmento pipeline</label>
+            <select
+              value={filters?.segmento || ""}
+              onChange={(e) => setFilters?.({ ...filters, segmento: e.target.value })}
+              className="pitahaya-select w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none"
+            >
+              <option value="">Todos los prospectos</option>
+              <option value="seguimiento">Prospectos en seguimiento</option>
+              <option value="proceso_venta">Prospectos en proceso de venta</option>
+            </select>
+          </div>
+        )}
+        {showPeriodFilter && (
+          <div className="w-full xl:w-52 flex flex-col gap-2">
+            <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Periodo</label>
+            <select
+              value={filters?.periodo || ""}
+              onChange={(e) => setFilters?.({ ...filters, periodo: e.target.value })}
+              className="pitahaya-select w-full appearance-none rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-3 text-sm text-white focus:border-[#CF3790] focus:outline-none"
+            >
+              <option value="">Todas las fechas</option>
+              <option value="today">Hoy</option>
+              <option value="this_week">Esta semana</option>
+              <option value="this_month">Este mes</option>
+              <option value="previous_months">Meses anteriores</option>
+            </select>
+          </div>
+        )}
         {showCorteFilter && (
           <div className="w-full xl:w-56 flex flex-col gap-2">
             <label className="text-sm font-semibold text-pitahaya-gray-300 tracking-wide">Corte (mes)</label>

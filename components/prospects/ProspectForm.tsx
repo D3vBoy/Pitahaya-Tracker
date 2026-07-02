@@ -6,7 +6,12 @@ import toast from "react-hot-toast";
 import type { PostgrestError } from "@supabase/supabase-js";
 import Button from "@/components/ui/Button";
 import Input from "@/components/ui/Input";
-import { STATUS_OPTIONS, isAllowedStatus } from "@/lib/prospects/status";
+import {
+  STATUS_OPTIONS,
+  VENTA_FINANCING_OPTIONS,
+  hasApartadoHistory,
+  isAllowedStatus,
+} from "@/lib/prospects/status";
 
 export interface ProspectData {
   id?: string;
@@ -29,6 +34,13 @@ export interface ProspectData {
   fecha_enganche: string;
   firma_pcv: string;
   fecha_cierre: string;
+  metraje_exacto: number | "";
+  precio_m2_pactado: number | "";
+  fecha_compromiso_cierre: string;
+  unidad_lote: string;
+  manzana_lote: string;
+  tipo_financiamiento_venta: string;
+  condiciones_financiamiento: string;
   observaciones: string;
 }
 
@@ -65,6 +77,13 @@ const createEmptyForm = (prospect?: NullablePartialProspectData | null): Prospec
   fecha_enganche: prospect?.fecha_enganche ?? "",
   firma_pcv: prospect?.firma_pcv ?? "",
   fecha_cierre: prospect?.fecha_cierre ?? "",
+  metraje_exacto: prospect?.metraje_exacto ?? "",
+  precio_m2_pactado: prospect?.precio_m2_pactado ?? "",
+  fecha_compromiso_cierre: prospect?.fecha_compromiso_cierre ?? "",
+  unidad_lote: prospect?.unidad_lote ?? "",
+  manzana_lote: prospect?.manzana_lote ?? "",
+  tipo_financiamiento_venta: prospect?.tipo_financiamiento_venta ?? "contado",
+  condiciones_financiamiento: prospect?.condiciones_financiamiento ?? "",
   observaciones: prospect?.observaciones ?? "",
 });
 
@@ -96,6 +115,13 @@ function normalizeProspectPayload(form: ProspectData, userId: string) {
     fecha_enganche: toNullableDate(form.fecha_enganche),
     firma_pcv: toNullableDate(form.firma_pcv),
     fecha_cierre: toNullableDate(form.fecha_cierre),
+    metraje_exacto: toNullableNumber(form.metraje_exacto),
+    precio_m2_pactado: toNullableNumber(form.precio_m2_pactado),
+    fecha_compromiso_cierre: toNullableDate(form.fecha_compromiso_cierre),
+    unidad_lote: toNullableText(form.unidad_lote),
+    manzana_lote: toNullableText(form.manzana_lote),
+    tipo_financiamiento_venta: toNullableText(form.tipo_financiamiento_venta),
+    condiciones_financiamiento: toNullableText(form.condiciones_financiamiento),
     observaciones: toNullableText(form.observaciones),
   };
 }
@@ -171,6 +197,28 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
         throw new Error("Debes seleccionar un status valido de seguimiento");
       }
 
+      const inSalesProcess = hasApartadoHistory(form);
+      if (inSalesProcess) {
+        if (!payload.metraje_exacto || payload.metraje_exacto <= 0) {
+          throw new Error("Completa el metraje exacto para prospectos en proceso de venta");
+        }
+        if (!payload.precio_m2_pactado || payload.precio_m2_pactado <= 0) {
+          throw new Error("Completa el precio por m² pactado para prospectos en proceso de venta");
+        }
+        if (!payload.fecha_compromiso_cierre) {
+          throw new Error("Captura la fecha compromiso de enganche o cierre");
+        }
+        if (!payload.unidad_lote || !payload.manzana_lote) {
+          throw new Error("Captura unidad y manzana del lote");
+        }
+        if (!payload.tipo_financiamiento_venta) {
+          throw new Error("Selecciona el tipo de financiamiento de la etapa de venta");
+        }
+        if (payload.tipo_financiamiento_venta === "otro" && !payload.condiciones_financiamiento) {
+          throw new Error("Describe condiciones de enganche y mensualidades en observaciones de financiamiento");
+        }
+      }
+
       if (prospect?.id) {
         const { error } = await supabase.from("prospects").update(payload).eq("id", prospect.id);
         if (error) throw new Error(buildSupabaseErrorMessage(error));
@@ -210,86 +258,151 @@ export default function ProspectForm({ prospect, onClose, onSuccess, isGerenta =
   const inputClass =
     "w-full rounded-xl border border-pitahaya-border bg-pitahaya-surface px-4 py-2.5 text-white placeholder-pitahaya-gray-500 transition-all duration-300 focus:border-pitahaya-cerise focus:outline-none focus:ring-2 focus:ring-pitahaya-cerise/20";
   const selectClass = `${inputClass} pitahaya-select`;
+  const inSalesProcess = hasApartadoHistory(form);
+  const isCustomSalesFinancing = form.tipo_financiamiento_venta === "otro";
 
   return (
     <>
       <form onSubmit={handleSubmit} className="space-y-5">
-        <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-          <Input label="Nombre del cliente *" name="nombre_cliente" value={form.nombre_cliente} onChange={handleChange} required />
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha 1er contacto *</label>
-            <input type="date" name="fecha_primer_contacto" value={form.fecha_primer_contacto} onChange={handleChange} required className={inputClass} />
+        <div className="rounded-2xl border border-pitahaya-border bg-pitahaya-surface/60 p-4">
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-pitahaya-gray-300">Etapa 1: Convencimiento y seguimiento</h3>
+            <p className="mt-1 text-xs text-pitahaya-gray-500">Prospectos en proceso de apartado, aun sin formalizar.</p>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha 1er zoom</label>
-            <input type="date" name="fecha_primer_zoom" value={form.fecha_primer_zoom} onChange={handleChange} className={inputClass} />
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Input label="Nombre del cliente *" name="nombre_cliente" value={form.nombre_cliente} onChange={handleChange} required />
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha 1er contacto *</label>
+              <input type="date" name="fecha_primer_contacto" value={form.fecha_primer_contacto} onChange={handleChange} required className={inputClass} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha 1er zoom</label>
+              <input type="date" name="fecha_primer_zoom" value={form.fecha_primer_zoom} onChange={handleChange} className={inputClass} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha 2do zoom</label>
+              <input type="date" name="fecha_segundo_zoom" value={form.fecha_segundo_zoom} onChange={handleChange} className={inputClass} />
+            </div>
+            <Input label="Metros cuadrados tentativos" type="number" name="metros_cuadrados_tentativos" value={form.metros_cuadrados_tentativos} onChange={handleChange} />
+            <Input label="Monto tentativo $" type="number" name="monto_total" value={form.monto_total} onChange={handleChange} />
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Plan de financiamiento tentativo</label>
+              <select name="plan_financiamiento" value={form.plan_financiamiento} onChange={handleChange} className={selectClass}>
+                <option value="contado">Contado</option>
+                <option value="12_meses">12 meses</option>
+                <option value="24_meses">24 meses</option>
+                <option value="36_meses">36 meses</option>
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5 md:col-span-2">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Status de seguimiento *</label>
+              <select
+                name="estatus_general"
+                value={form.estatus_general}
+                onChange={handleChange}
+                required
+                className={selectClass}
+              >
+                <option value="">Selecciona un status obligatorio</option>
+                {STATUS_OPTIONS.map((status) => (
+                  <option key={status} value={status}>
+                    {status}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <Input label="Próxima acción" name="proxima_accion" value={form.proxima_accion} onChange={handleChange} placeholder="Ejemplo: Llamar el martes o N/A" />
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Próximo seguimiento</label>
+              <input type="date" name="proximo_seguimiento" value={form.proximo_seguimiento} onChange={handleChange} className={inputClass} />
+            </div>
+            <Input label="Probabilidad cierre (%)" type="number" min={0} max={100} name="probabilidad_cierre" value={form.probabilidad_cierre} onChange={handleChange} />
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Estatus enganche</label>
+              <select name="estatus_enganche" value={form.estatus_enganche} onChange={handleChange} className={selectClass}>
+                <option value="realizado">Realizado</option>
+                <option value="pendiente">Pendiente</option>
+              </select>
+            </div>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha 2do zoom</label>
-            <input type="date" name="fecha_segundo_zoom" value={form.fecha_segundo_zoom} onChange={handleChange} className={inputClass} />
+        </div>
+
+        <div className="rounded-2xl border border-pitahaya-border bg-pitahaya-surface/60 p-4">
+          <div className="mb-3">
+            <h3 className="text-sm font-semibold uppercase tracking-[0.14em] text-pitahaya-gray-300">Etapa 2: Proceso de venta</h3>
+            <p className="mt-1 text-xs text-pitahaya-gray-500">Cuando el prospecto ya apartó y se requiere integrar datos de cierre.</p>
           </div>
-          <Input label="Metros cuadrados tentativos" type="number" name="metros_cuadrados_tentativos" value={form.metros_cuadrados_tentativos} onChange={handleChange} />
-          <Input label="Monto total $" type="number" name="monto_total" value={form.monto_total} onChange={handleChange} />
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Plan de financiamiento</label>
-            <select name="plan_financiamiento" value={form.plan_financiamiento} onChange={handleChange} className={selectClass}>
-              <option value="contado">Contado</option>
-              <option value="12_meses">12 meses</option>
-              <option value="24_meses">24 meses</option>
-              <option value="36_meses">36 meses</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Estatus enganche</label>
-            <select name="estatus_enganche" value={form.estatus_enganche} onChange={handleChange} className={selectClass}>
-              <option value="realizado">Realizado</option>
-              <option value="pendiente">Pendiente</option>
-            </select>
-          </div>
-          <div className="flex flex-col gap-1.5 md:col-span-2">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Status de seguimiento *</label>
-            <select
-              name="estatus_general"
-              value={form.estatus_general}
-              onChange={handleChange}
-              required
-              className={selectClass}
-            >
-              <option value="">Selecciona un status obligatorio</option>
-              {STATUS_OPTIONS.map((status) => (
-                <option key={status} value={status}>
-                  {status}
-                </option>
-              ))}
-            </select>
-          </div>
-          <Input label="Próxima acción" name="proxima_accion" value={form.proxima_accion} onChange={handleChange} placeholder="Ejemplo: Llamar el martes o N/A" />
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Próximo seguimiento</label>
-            <input type="date" name="proximo_seguimiento" value={form.proximo_seguimiento} onChange={handleChange} className={inputClass} />
-          </div>
-          <Input label="Probabilidad cierre (%)" type="number" min={0} max={100} name="probabilidad_cierre" value={form.probabilidad_cierre} onChange={handleChange} />
-          <div className="flex h-full items-center gap-3 pt-6">
+
+          <div className="mb-4 flex items-center gap-3 rounded-xl border border-pitahaya-border bg-black/10 px-3 py-3">
             <input type="checkbox" name="apartado_realizado" checked={form.apartado_realizado} onChange={handleChange} className="h-5 w-5 rounded accent-[#CF3790]" />
             <label className="text-sm font-medium text-pitahaya-gray-300">Apartado realizado</label>
           </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha de apartado</label>
-            <input type="date" name="fecha_apartado" value={form.fecha_apartado} onChange={handleChange} className={inputClass} />
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha de apartado</label>
+              <input type="date" name="fecha_apartado" value={form.fecha_apartado} onChange={handleChange} className={inputClass} />
+            </div>
+            <Input label="Monto apartado $" type="number" name="monto_apartado" value={form.monto_apartado} onChange={handleChange} />
+            <Input label="Metraje exacto" type="number" name="metraje_exacto" value={form.metraje_exacto} onChange={handleChange} required={inSalesProcess} />
+            <Input label="Precio por m² pactado" type="number" name="precio_m2_pactado" value={form.precio_m2_pactado} onChange={handleChange} required={inSalesProcess} />
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha compromiso enganche/cierre</label>
+              <input type="date" name="fecha_compromiso_cierre" value={form.fecha_compromiso_cierre} onChange={handleChange} className={inputClass} required={inSalesProcess} />
+            </div>
+            <Input label="Unidad (lote)" name="unidad_lote" value={form.unidad_lote} onChange={handleChange} required={inSalesProcess} />
+            <Input label="Manzana (lote)" name="manzana_lote" value={form.manzana_lote} onChange={handleChange} required={inSalesProcess} />
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Tipo de financiamiento</label>
+              <select
+                name="tipo_financiamiento_venta"
+                value={form.tipo_financiamiento_venta}
+                onChange={handleChange}
+                className={selectClass}
+                required={inSalesProcess}
+              >
+                {VENTA_FINANCING_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option === "36_meses"
+                      ? "36 meses"
+                      : option === "24_meses"
+                        ? "24 meses"
+                        : option === "contado"
+                          ? "Contado"
+                          : "Otro"}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha de enganche</label>
+              <input type="date" name="fecha_enganche" value={form.fecha_enganche} onChange={handleChange} className={inputClass} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Firma PCV</label>
+              <input type="date" name="firma_pcv" value={form.firma_pcv} onChange={handleChange} className={inputClass} />
+            </div>
+            <div className="flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha de cierre</label>
+              <input type="date" name="fecha_cierre" value={form.fecha_cierre} onChange={handleChange} className={inputClass} />
+            </div>
           </div>
-          <Input label="Monto apartado $" type="number" name="monto_apartado" value={form.monto_apartado} onChange={handleChange} />
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha de enganche</label>
-            <input type="date" name="fecha_enganche" value={form.fecha_enganche} onChange={handleChange} className={inputClass} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Firma PCV</label>
-            <input type="date" name="firma_pcv" value={form.firma_pcv} onChange={handleChange} className={inputClass} />
-          </div>
-          <div className="flex flex-col gap-1.5">
-            <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Fecha de cierre</label>
-            <input type="date" name="fecha_cierre" value={form.fecha_cierre} onChange={handleChange} className={inputClass} />
-          </div>
+
+          {isCustomSalesFinancing && (
+            <div className="mt-4 flex flex-col gap-1.5">
+              <label className="ml-1 text-sm font-medium text-pitahaya-gray-300">Observaciones de financiamiento</label>
+              <textarea
+                name="condiciones_financiamiento"
+                value={form.condiciones_financiamiento}
+                onChange={handleChange}
+                rows={3}
+                required={inSalesProcess}
+                placeholder="Define % de enganche, mensualidades y condiciones acordadas"
+                className={inputClass}
+              />
+            </div>
+          )}
         </div>
 
         <div className="flex flex-col gap-1.5">

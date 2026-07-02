@@ -93,3 +93,46 @@ self.addEventListener("fetch", (event) => {
       .catch(() => caches.match(request))
   );
 });
+
+self.addEventListener("push", (event) => {
+  if (!event.data) return;
+
+  let payload = {};
+  try {
+    payload = event.data.json();
+  } catch {
+    payload = { title: "Pitahaya Tracker", body: event.data.text() };
+  }
+
+  const title = payload.title || "Nuevo mensaje";
+  const body = payload.body || "Tienes una nueva notificacion";
+  const url = payload.url || "/";
+
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/api/pwa-icon/192",
+      badge: "/api/pwa-icon/192",
+      data: { url },
+      tag: "pitahaya-chat",
+      renotify: true,
+      vibrate: [180, 80, 180],
+    })
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const targetUrl = event.notification.data?.url || "/";
+
+  event.waitUntil(
+    clients.matchAll({ type: "window", includeUncontrolled: true }).then((clientList) => {
+      const target = clientList.find((client) => client.url.includes(self.location.origin));
+      if (target) {
+        target.focus();
+        return target.navigate(targetUrl);
+      }
+      return clients.openWindow(targetUrl);
+    })
+  );
+});

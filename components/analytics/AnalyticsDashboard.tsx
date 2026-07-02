@@ -20,8 +20,16 @@ import {
   FiAlertTriangle,
   FiCalendar,
   FiActivity,
+  FiLayers,
 } from "react-icons/fi";
-import { displayValue, isActiveStatus, isClosedLostStatus, isClosedWonStatus } from "@/lib/prospects/status";
+import {
+  displayValue,
+  getPipelineBreakdownTotals,
+  hasApartadoHistory,
+  isActiveStatus,
+  isClosedLostStatus,
+  isClosedWonStatus,
+} from "@/lib/prospects/status";
 
 ChartJS.register(ArcElement, Tooltip, Legend, CategoryScale, LinearScale, BarElement);
 
@@ -36,6 +44,8 @@ interface Prospect {
   estatus_general: string;
   probabilidad_cierre: number | null;
   monto_total: number | null;
+  metros_cuadrados_tentativos?: number | null;
+  metraje_exacto?: number | null;
   apartado_realizado?: boolean;
   proximo_seguimiento?: string | null;
   fecha_cierre?: string | null;
@@ -66,7 +76,7 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
     const perdidos = prospects.filter((p) => isClosedLostStatus(p.estatus_general)).length;
     const activos = prospects.filter((p) => isActiveStatus(p.estatus_general));
 
-    const apartadosActivos = activos.filter((p) => p.apartado_realizado).length;
+    const apartadosActivos = activos.filter((p) => hasApartadoHistory(p)).length;
 
     const seguimientosVencidos = activos.filter((p) => {
       if (!p.proximo_seguimiento) return false;
@@ -130,6 +140,8 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
       topAsesor,
     };
   }, [prospects, kpis.totalMonto]);
+
+  const pipelineBreakdown = useMemo(() => getPipelineBreakdownTotals(prospects), [prospects]);
 
   const statusData = useMemo(() => {
     const counts: Record<string, number> = {};
@@ -335,6 +347,30 @@ export default function AnalyticsDashboard({ prospects, asesores = [] }: Props) 
               </div>
             </div>
           ))}
+        </div>
+
+        <div className="premium-panel rounded-3xl p-6 shadow-glass">
+          <div className="mb-4 flex items-center gap-2 text-pitahaya-gray-300">
+            <FiLayers />
+            <h3 className="text-lg font-semibold text-white">Distincion de monto y m² por etapa</h3>
+          </div>
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-3">
+            <div className="rounded-xl border border-emerald-400/30 bg-emerald-500/10 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-emerald-100">Venta cerrada</p>
+              <p className="mt-2 text-2xl font-bold text-white">{formatMoney(pipelineBreakdown.cerradoMonto)}</p>
+              <p className="mt-1 text-xs text-emerald-100/90">{pipelineBreakdown.cerradoM2.toLocaleString("es-MX")} m² cerrados</p>
+            </div>
+            <div className="rounded-xl border border-amber-400/30 bg-amber-500/10 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-amber-100">Flotante en proceso de cierre</p>
+              <p className="mt-2 text-2xl font-bold text-white">{formatMoney(pipelineBreakdown.procesoMonto)}</p>
+              <p className="mt-1 text-xs text-amber-100/90">{pipelineBreakdown.procesoM2.toLocaleString("es-MX")} m² apartados</p>
+            </div>
+            <div className="rounded-xl border border-fuchsia-400/30 bg-fuchsia-500/10 p-4">
+              <p className="text-xs uppercase tracking-[0.14em] text-fuchsia-100">Tentativo en seguimiento</p>
+              <p className="mt-2 text-2xl font-bold text-white">{formatMoney(pipelineBreakdown.tentativoMonto)}</p>
+              <p className="mt-1 text-xs text-fuchsia-100/90">{pipelineBreakdown.tentativoM2.toLocaleString("es-MX")} m² tentativos</p>
+            </div>
+          </div>
         </div>
 
         <div className="premium-panel rounded-3xl p-6 shadow-glass">

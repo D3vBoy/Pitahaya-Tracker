@@ -26,8 +26,6 @@ const TeamNotificationsContext = createContext<TeamNotificationsContextValue>({
   markConversationRead: async () => {},
 });
 
-const NOTIFICATION_PERMISSION_KEY = "pitahaya-notification-permission-requested";
-
 export function useTeamNotifications() {
   return useContext(TeamNotificationsContext);
 }
@@ -37,6 +35,63 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
   const [unreadByConversation, setUnreadByConversation] = useState<Partial<Record<ChatUnreadKey, number>>>({});
 
   const supabase = useMemo(() => createClientSupabase(), []);
+
+  const playNotificationTone = useCallback(() => {
+    if (typeof window === "undefined") return;
+    const audioContextConstructor = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
+    if (!audioContextConstructor) return;
+
+    try {
+      const ctx = new audioContextConstructor();
+      const gain = ctx.createGain();
+      gain.gain.value = 0.04;
+      gain.connect(ctx.destination);
+
+      const now = ctx.currentTime;
+      const makeBeep = (offset: number, frequency: number) => {
+        const osc = ctx.createOscillator();
+        osc.type = "sine";
+        osc.frequency.value = frequency;
+        osc.connect(gain);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.14);
+      };
+
+      makeBeep(0, 880);
+      makeBeep(0.2, 990);
+
+      window.setTimeout(() => {
+        void ctx.close();
+      }, 700);
+    } catch {
+      // Audio is best-effort and may be blocked until user interaction.
+    }
+  }, []);
+
+  const showBrowserNotification = useCallback(async (title: string, body: string) => {
+    if (typeof window === "undefined" || !("Notification" in window)) return;
+    if (Notification.permission !== "granted") return;
+
+    try {
+      if ("serviceWorker" in navigator) {
+        const registration = await navigator.serviceWorker.ready;
+        await registration.showNotification(title, {
+          body,
+          tag: "pitahaya-chat-live",
+          renotify: true,
+          icon: "/api/pwa-icon/192",
+          badge: "/api/pwa-icon/192",
+          vibrate: [180, 80, 180],
+          data: { url: window.location.pathname },
+        });
+        return;
+      }
+
+      new Notification(title, { body });
+    } catch {
+      // Fallback to toast only if Notification API fails.
+    }
+  }, []);
 
   const markConversationRead = useCallback(async (conversation: { type: "general" } | { type: "direct"; peerUserId: string }) => {
     if (!currentUserId) return;
@@ -114,11 +169,7 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
       setUnreadByConversation(nextUnread);
 
       if (typeof window !== "undefined" && "Notification" in window && Notification.permission === "default") {
-        const alreadyRequested = window.localStorage.getItem(NOTIFICATION_PERMISSION_KEY) === "1";
-        if (!alreadyRequested) {
-          window.localStorage.setItem(NOTIFICATION_PERMISSION_KEY, "1");
-          void Notification.requestPermission();
-        }
+        void Notification.requestPermission();
       }
 
       const channel = supabase
@@ -143,12 +194,8 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
 
             const title = message.is_global ? "Nuevo mensaje en chat general" : "Nuevo mensaje directo";
             toast(title, { icon: "💬" });
-
-            if (typeof window !== "undefined" && "Notification" in window) {
-              if (Notification.permission === "granted") {
-                new Notification(title, { body: message.body.slice(0, 120) });
-              }
-            }
+            playNotificationTone();
+            void showBrowserNotification(title, message.body.slice(0, 120));
           }
         )
         .subscribe();
@@ -167,7 +214,7 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
       active = false;
       cleanup?.();
     };
-  }, [supabase]);
+  }, [playNotificationTone, showBrowserNotification, supabase]);
 
   const totalUnreadCount = useMemo(
     () => Object.values(unreadByConversation).reduce<number>((acc, count) => acc + (count || 0), 0),

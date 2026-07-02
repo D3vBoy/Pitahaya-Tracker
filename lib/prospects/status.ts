@@ -16,6 +16,10 @@ export const STATUS_OPTIONS = [
   "Venta caída. Motivo en observaciones.",
 ] as const;
 
+export const VENTA_FINANCING_OPTIONS = ["36_meses", "24_meses", "contado", "otro"] as const;
+
+export type VentaFinancingOption = (typeof VENTA_FINANCING_OPTIONS)[number];
+
 export const NOT_AVAILABLE_LABEL = "N/A";
 
 export function displayValue(value?: string | number | null): string {
@@ -82,4 +86,109 @@ export function hasMissingRequiredProspectFields(input: {
   const status = (input.estatus_general || "").trim();
 
   return !name || !firstContact || !isAllowedStatus(status);
+}
+
+export function isProspectInSalesProcess(input: {
+  estatus_general?: string | null;
+  apartado_realizado?: boolean | null;
+  fecha_apartado?: string | null;
+  fecha_enganche?: string | null;
+  firma_pcv?: string | null;
+}): boolean {
+  return hasApartadoHistory(input);
+}
+
+export function isProspectInSeguimiento(input: {
+  estatus_general?: string | null;
+  apartado_realizado?: boolean | null;
+  fecha_apartado?: string | null;
+  fecha_enganche?: string | null;
+  firma_pcv?: string | null;
+}): boolean {
+  return isActiveStatus(input.estatus_general) && !isProspectInSalesProcess(input);
+}
+
+export function isDateInPreset(
+  value: string | null | undefined,
+  preset: "today" | "this_week" | "this_month" | "previous_months"
+): boolean {
+  if (!value) return false;
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) return false;
+
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const target = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+
+  if (preset === "today") {
+    return target.getTime() === today.getTime();
+  }
+
+  if (preset === "this_week") {
+    const day = today.getDay();
+    const mondayOffset = day === 0 ? -6 : 1 - day;
+    const weekStart = new Date(today);
+    weekStart.setDate(today.getDate() + mondayOffset);
+    const weekEnd = new Date(weekStart);
+    weekEnd.setDate(weekStart.getDate() + 6);
+    return target >= weekStart && target <= weekEnd;
+  }
+
+  if (preset === "this_month") {
+    return target.getFullYear() === today.getFullYear() && target.getMonth() === today.getMonth();
+  }
+
+  return target < new Date(today.getFullYear(), today.getMonth(), 1);
+}
+
+export function getProspectReferenceDate(input: {
+  proximo_seguimiento?: string | null;
+  fecha_apartado?: string | null;
+  fecha_primer_contacto?: string | null;
+  fecha_cierre?: string | null;
+}): string | null {
+  return input.proximo_seguimiento || input.fecha_apartado || input.fecha_cierre || input.fecha_primer_contacto || null;
+}
+
+export function getPipelineBreakdownTotals<T extends {
+  monto_total?: number | null;
+  metros_cuadrados_tentativos?: number | null;
+  metraje_exacto?: number | null;
+  estatus_general?: string | null;
+  apartado_realizado?: boolean | null;
+  fecha_apartado?: string | null;
+  fecha_enganche?: string | null;
+  firma_pcv?: string | null;
+}> (prospects: T[]) {
+  const result = {
+    cerradoMonto: 0,
+    cerradoM2: 0,
+    procesoMonto: 0,
+    procesoM2: 0,
+    tentativoMonto: 0,
+    tentativoM2: 0,
+  };
+
+  prospects.forEach((prospect) => {
+    const monto = prospect.monto_total || 0;
+    const m2Tentativo = prospect.metros_cuadrados_tentativos || 0;
+    const m2Exacto = prospect.metraje_exacto || 0;
+
+    if (isClosedWonStatus(prospect.estatus_general)) {
+      result.cerradoMonto += monto;
+      result.cerradoM2 += m2Exacto || m2Tentativo;
+      return;
+    }
+
+    if (isProspectInSalesProcess(prospect)) {
+      result.procesoMonto += monto;
+      result.procesoM2 += m2Exacto || m2Tentativo;
+      return;
+    }
+
+    result.tentativoMonto += monto;
+    result.tentativoM2 += m2Tentativo || m2Exacto;
+  });
+
+  return result;
 }

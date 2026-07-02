@@ -11,8 +11,15 @@ interface PipelineProspect {
   fecha_primer_zoom: string | null;
   fecha_segundo_zoom: string | null;
   metros_cuadrados_tentativos: number | null;
+  metraje_exacto: number | null;
+  precio_m2_pactado: number | null;
   monto_total: number | null;
   plan_financiamiento: string | null;
+  tipo_financiamiento_venta: string | null;
+  condiciones_financiamiento: string | null;
+  fecha_compromiso_cierre: string | null;
+  unidad_lote: string | null;
+  manzana_lote: string | null;
   estatus_enganche: string;
   estatus_general: string;
   proxima_accion: string | null;
@@ -54,7 +61,7 @@ export default function PipelineExcelTable({ data, loading = false, onRowClick }
       </div>
 
       <div className="w-full overflow-x-auto custom-scrollbar">
-        <table className="min-w-[2000px] border-collapse text-left text-sm whitespace-nowrap md:min-w-[2300px]">
+        <table className="min-w-[2400px] border-collapse text-left text-sm whitespace-nowrap md:min-w-[2700px]">
           <thead className="bg-[#130E12]/65 text-[11px] uppercase tracking-[0.18em] text-pitahaya-gray-300">
             <tr className="border-b border-[#39065E]">
               <th className="w-44 min-w-44 border-r border-[#39065E]/30 bg-[#130E12] px-3 py-4 md:w-56 md:min-w-56 md:px-4 lg:sticky lg:left-0 lg:z-20">Cliente</th>
@@ -64,10 +71,17 @@ export default function PipelineExcelTable({ data, loading = false, onRowClick }
               <th className="px-4 py-4">Prob. cierre</th>
               <th className="px-4 py-4">Monto total</th>
               <th className="px-4 py-4">m2 tentativos</th>
+              <th className="px-4 py-4">m2 exactos</th>
+              <th className="px-4 py-4">Precio m2 pactado</th>
               <th className="px-4 py-4">Plan financiamiento</th>
+              <th className="px-4 py-4">Financiamiento venta</th>
+              <th className="px-4 py-4">Condiciones financiamiento</th>
               <th className="px-4 py-4">Apartado</th>
               <th className="px-4 py-4">Fecha apartado</th>
+              <th className="px-4 py-4">Compromiso cierre</th>
               <th className="px-4 py-4">Monto apartado</th>
+              <th className="px-4 py-4">Unidad</th>
+              <th className="px-4 py-4">Manzana</th>
               <th className="px-4 py-4">Fecha enganche</th>
               <th className="px-4 py-4">Firma PCV</th>
               <th className="px-4 py-4">Fecha cierre</th>
@@ -83,13 +97,13 @@ export default function PipelineExcelTable({ data, loading = false, onRowClick }
           <tbody className="divide-y divide-[#39065E]/35 text-sm text-pitahaya-gray-300">
             {loading ? (
               <tr>
-                <td colSpan={20} className="px-6 py-14 text-center text-pitahaya-gray-500">
+                <td colSpan={27} className="px-6 py-14 text-center text-pitahaya-gray-500">
                   Cargando pipeline...
                 </td>
               </tr>
             ) : data.length === 0 ? (
               <tr>
-                <td colSpan={20} className="px-6 py-14 text-center text-pitahaya-gray-500">
+                <td colSpan={27} className="px-6 py-14 text-center text-pitahaya-gray-500">
                   Sin datos para mostrar en pipeline.
                 </td>
               </tr>
@@ -117,10 +131,17 @@ export default function PipelineExcelTable({ data, loading = false, onRowClick }
                   <td className="px-4 py-3 font-semibold text-white">{prospect.probabilidad_cierre ?? 0}%</td>
                   <td className="px-4 py-3 font-semibold text-emerald-300">{formatMoneda(prospect.monto_total)}</td>
                   <td className="px-4 py-3">{displayValue(prospect.metros_cuadrados_tentativos)}</td>
+                  <td className="px-4 py-3">{displayValue(prospect.metraje_exacto)}</td>
+                  <td className="px-4 py-3">{displayValue(prospect.precio_m2_pactado)}</td>
                   <td className="px-4 py-3">{displayValue(prospect.plan_financiamiento)}</td>
+                  <td className="px-4 py-3">{displayValue(prospect.tipo_financiamiento_venta)}</td>
+                  <td className="max-w-64 truncate px-4 py-3">{displayValue(prospect.condiciones_financiamiento)}</td>
                   <td className="px-4 py-3">{prospect.apartado_realizado ? "Si" : "No"}</td>
                   <td className="px-4 py-3">{formatFecha(prospect.fecha_apartado)}</td>
+                  <td className="px-4 py-3">{formatFecha(prospect.fecha_compromiso_cierre)}</td>
                   <td className="px-4 py-3">{formatMoneda(prospect.monto_apartado)}</td>
+                  <td className="px-4 py-3">{displayValue(prospect.unidad_lote)}</td>
+                  <td className="px-4 py-3">{displayValue(prospect.manzana_lote)}</td>
                   <td className="px-4 py-3">{formatFecha(prospect.fecha_enganche)}</td>
                   <td className="px-4 py-3">{formatFecha(prospect.firma_pcv)}</td>
                   <td className="px-4 py-3">{formatFecha(prospect.fecha_cierre)}</td>

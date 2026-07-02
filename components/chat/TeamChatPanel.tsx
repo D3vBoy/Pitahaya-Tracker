@@ -122,7 +122,7 @@ export default function TeamChatPanel({
   teamMembers = [],
   directoryHint = "",
 }: Props) {
-  const supabase = createClientSupabase();
+  const supabase = useMemo(() => createClientSupabase(), []);
   const { unreadByConversation, markConversationRead } = useTeamNotifications();
   const [messages, setMessages] = useState<TeamMessageRow[]>([]);
   const [body, setBody] = useState("");

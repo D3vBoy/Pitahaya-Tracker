@@ -19,8 +19,20 @@ import KPICard from "@/components/ui/KPICard";
 import ResponsiveDashboardNav from "@/components/ui/ResponsiveDashboardNav";
 import { useTeamNotifications } from "@/components/providers/TeamNotificationsProvider";
 import { isAdvisorChatRole, isTeamChatRole } from "@/lib/chat";
-import { hasApartadoHistory, isActiveStatus, isClosedWonStatus } from "@/lib/prospects/status";
+import {
+  getPipelineBreakdownTotals,
+  hasApartadoHistory,
+  isActiveStatus,
+  isClosedWonStatus,
+} from "@/lib/prospects/status";
 import { FiBarChart2, FiGrid, FiMessageCircle, FiTarget, FiTrendingUp } from "react-icons/fi";
+import {
+  exportApartadosStateReport,
+  exportDailyMetricsPdf,
+  exportGeneralProspectsReport,
+  exportVentasCaidasReport,
+  filterProspectsForManagerPipeline,
+} from "@/lib/reports/managerExports";
 import {
   DAILY_CLOSURE_SETUP_MESSAGE,
   DailyClosureEditRequestRow,
@@ -42,8 +54,15 @@ interface ProspectWithAsesor {
   fecha_primer_zoom: string | null;
   fecha_segundo_zoom: string | null;
   metros_cuadrados_tentativos: number | null;
+  metraje_exacto: number | null;
+  precio_m2_pactado: number | null;
   monto_total: number | null;
   plan_financiamiento: string | null;
+  tipo_financiamiento_venta: string | null;
+  condiciones_financiamiento: string | null;
+  fecha_compromiso_cierre: string | null;
+  unidad_lote: string | null;
+  manzana_lote: string | null;
   estatus_enganche: string;
   estatus_general: string;
   proxima_accion: string | null;
@@ -92,6 +111,8 @@ export default function GerentaPage() {
   const [globalReportSaving, setGlobalReportSaving] = useState(false);
   const [selectedReportDate, setSelectedReportDate] = useState(getTodayDateKey());
   const [tab, setTab] = useState<"action" | "pipeline" | "dailyClose" | "chat" | "analytics">("action");
+  const [downloadType, setDownloadType] = useState<"general" | "apartados" | "caidas" | "metricas">("general");
+  const [metricsPeriod, setMetricsPeriod] = useState<"day" | "week" | "month">("day");
   const [filters, setFilters] = useState({
     search: "",
     estatus: "",
@@ -99,6 +120,8 @@ export default function GerentaPage() {
     asesorId: "",
     apartado: "",
     corte: "",
+    segmento: "",
+    periodo: "",
   });
 
   const getCorteMonth = (prospect: ProspectWithAsesor) => {
@@ -212,8 +235,8 @@ export default function GerentaPage() {
   }, [fetchDailyReports]);
 
   const filtered = useMemo(
-    () =>
-      prospects.filter((p) => {
+    () => {
+      const base = prospects.filter((p) => {
         return (
           p.nombre_cliente.toLowerCase().includes(filters.search.toLowerCase()) &&
           (!filters.estatus || p.estatus_general === filters.estatus) &&
@@ -221,11 +244,14 @@ export default function GerentaPage() {
             (p.probabilidad_cierre !== null && p.probabilidad_cierre >= filters.probabilidadMin)) &&
           (!filters.asesorId || p.user_id === filters.asesorId) &&
           (!filters.apartado ||
-            ((filters.apartado === "apartado_historial" || filters.apartado === "apartados_activos") &&
-              hasApartadoHistory(p))) &&
+            (filters.apartado === "apartado_historial" && hasApartadoHistory(p)) ||
+            (filters.apartado === "apartados_activos" && hasApartadoHistory(p) && !p.fecha_cierre)) &&
           (!filters.corte || getCorteMonth(p) === filters.corte)
         );
-      }),
+      });
+
+      return filterProspectsForManagerPipeline(base, filters.segmento, filters.periodo);
+    },
     [prospects, filters]
   );
 
@@ -377,8 +403,10 @@ export default function GerentaPage() {
     asesor: filters.asesorId,
     apartado: filters.apartado,
     corte: filters.corte,
+    segmento: filters.segmento,
+    periodo: filters.periodo,
   };
-  const setUiFilters = (next: { estatus?: string; probabilidad?: string; asesor?: string; apartado?: string; corte?: string }) => {
+  const setUiFilters = (next: { estatus?: string; probabilidad?: string; asesor?: string; apartado?: string; corte?: string; segmento?: string; periodo?: string }) => {
     setFilters((prev) => ({
       ...prev,
       estatus: next.estatus ?? prev.estatus,
@@ -390,7 +418,9 @@ export default function GerentaPage() {
             : Number.parseInt(next.probabilidad, 10),
       asesorId: next.asesor ?? prev.asesorId,
       apartado: next.apartado ?? prev.apartado,
-          corte: next.corte ?? prev.corte,
+      corte: next.corte ?? prev.corte,
+      segmento: next.segmento ?? prev.segmento,
+      periodo: next.periodo ?? prev.periodo,
     }));
   };
 
@@ -402,10 +432,47 @@ export default function GerentaPage() {
         filtered.length > 0
           ? Math.round(filtered.reduce((a, p) => a + (p.probabilidad_cierre || 0), 0) / filtered.length)
           : 0,
-      montoPipeline: filtered.reduce((a, p) => a + (p.monto_total || 0), 0),
     }),
     [filtered]
   );
+
+  const pipelineBreakdown = useMemo(() => getPipelineBreakdownTotals(filtered), [filtered]);
+
+  const formatShortCurrency = (value: number) =>
+    value.toLocaleString("es-MX", {
+      style: "currency",
+      currency: "MXN",
+      maximumFractionDigits: 0,
+      notation: "compact",
+    });
+
+  const handleDownloadReport = async () => {
+    try {
+      if (downloadType === "general") {
+        exportGeneralProspectsReport(filtered);
+        toast.success("Reporte general exportado");
+        return;
+      }
+
+      if (downloadType === "apartados") {
+        exportApartadosStateReport(filtered);
+        toast.success("Reporte de apartados exportado");
+        return;
+      }
+
+      if (downloadType === "caidas") {
+        exportVentasCaidasReport(filtered);
+        toast.success("Reporte de ventas caidas exportado");
+        return;
+      }
+
+      const reportSource = metricsPeriod === "day" ? dailyReports : monthlyDailyReports;
+      exportDailyMetricsPdf(reportSource, asesores, metricsPeriod, selectedReportDate);
+      toast.success("Reporte de metricas de asesores exportado");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "No se pudo exportar el reporte");
+    }
+  };
 
   return (
     <div className="relative app-shell w-full overflow-hidden pb-24 text-white md:pb-6">
@@ -413,12 +480,18 @@ export default function GerentaPage() {
       <div className="pointer-events-none absolute -bottom-24 -right-16 h-80 w-80 rounded-full bg-[#CF3790]/12 blur-[120px]" />
 
       <div className="relative z-10 flex flex-col gap-6">
-        <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
-          <KPICard titulo="Total Prospectos" valor={kpis.total} glowColor="bg-[#CF3790]/20" />
-          <KPICard titulo="Activos" valor={kpis.activos} glowColor="bg-[#F38D62]/20" />
-          <KPICard titulo="Prob. Promedio" valor={`${kpis.probPromedio}%`} />
-          <KPICard titulo="Monto Pipeline" valor={`$${kpis.montoPipeline.toLocaleString("es-MX")}`} textAccent="text-emerald-400" />
-        </div>
+        {tab === "pipeline" && (
+          <div className="grid w-full grid-cols-1 gap-5 sm:grid-cols-2 xl:grid-cols-4">
+            <KPICard titulo="Total Prospectos" valor={kpis.total} glowColor="bg-[#CF3790]/20" />
+            <KPICard titulo="Activos" valor={kpis.activos} glowColor="bg-[#F38D62]/20" />
+            <KPICard titulo="Prob. Promedio" valor={`${kpis.probPromedio}%`} />
+            <KPICard
+              titulo="Pipeline R/P/T"
+              valor={`${formatShortCurrency(pipelineBreakdown.cerradoMonto)} / ${formatShortCurrency(pipelineBreakdown.procesoMonto)} / ${formatShortCurrency(pipelineBreakdown.tentativoMonto)}`}
+              textAccent="text-emerald-400"
+            />
+          </div>
+        )}
 
         <div className="flex w-full justify-start">
           <ResponsiveDashboardNav
@@ -436,7 +509,42 @@ export default function GerentaPage() {
 
         {tab === "analytics" ? (
           <>
-            <div className="flex justify-end">
+            <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
+              <div className="premium-panel rounded-2xl p-4">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-pitahaya-gray-400">Descargas gerencia</p>
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                  <select
+                    value={downloadType}
+                    onChange={(event) => setDownloadType(event.target.value as typeof downloadType)}
+                    className="pitahaya-select rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-2.5 text-sm text-white"
+                  >
+                    <option value="general">1) Reporte general de asesores</option>
+                    <option value="apartados">2) Reporte de apartados activos/cerrados</option>
+                    <option value="caidas">3) Reporte de ventas caidas</option>
+                    <option value="metricas">4) PDF metricas cierre del dia</option>
+                  </select>
+
+                  <select
+                    value={metricsPeriod}
+                    onChange={(event) => setMetricsPeriod(event.target.value as typeof metricsPeriod)}
+                    disabled={downloadType !== "metricas"}
+                    className="pitahaya-select rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-2.5 text-sm text-white disabled:opacity-50"
+                  >
+                    <option value="day">Este dia</option>
+                    <option value="week">Esta semana</option>
+                    <option value="month">Este mes</option>
+                  </select>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadReport}
+                    className="rounded-xl bg-linear-to-r from-[#CF3790] to-[#B828E8] px-4 py-2.5 text-sm font-semibold text-white shadow-lg shadow-[#CF3790]/20"
+                  >
+                    Descargar reporte
+                  </button>
+                </div>
+              </div>
+
               <motion.button
                 whileHover={{ scale: 1.02 }}
                 whileTap={{ scale: 0.98 }}
@@ -458,14 +566,14 @@ export default function GerentaPage() {
                 }}
                 className="bg-linear-to-r from-[#CF3790] to-[#B828E8] text-white h-11 px-5 rounded-xl flex items-center gap-2 font-semibold text-sm shadow-lg shadow-[#CF3790]/20 hover:shadow-[#CF3790]/40 transition-all"
               >
-                <FiDownload size={16} /> Exportar PDF
+                <FiDownload size={16} /> Exportar dashboard PDF
               </motion.button>
             </div>
             <AnalyticsDashboard prospects={prospects} asesores={asesores} />
           </>
         ) : (
           <>
-            {tab !== "dailyClose" && (
+            {(tab === "action" || tab === "pipeline") && (
               <SearchAndFilter
                 searchTerm={searchTerm}
                 setSearchTerm={setSearchTerm}
@@ -474,6 +582,8 @@ export default function GerentaPage() {
                 asesores={asesores}
                 showAsesorFilter
                 showCorteFilter
+                showPipelineSegmentFilter={tab === "pipeline"}
+                showPeriodFilter={tab === "pipeline"}
                 corteOptions={corteOptions}
                 onNewProspect={() => {
                   setEditingProspect(null);
