@@ -159,33 +159,17 @@ export default function AsesorPage() {
 
     setDailyReportSubmitting(true);
     try {
-      const payload = {
-        user_id: user.id,
-        report_date: reportDate,
-        ...values,
-        updated_at: new Date().toISOString(),
-      };
-
-      const query = reportId
-        ? supabase
-            .from("daily_closure_reports")
-            .update({
-              ...payload,
-              edit_unlocked_until: null,
-            })
-            .eq("id", reportId)
-            .select("*")
-            .maybeSingle()
-        : supabase
-            .from("daily_closure_reports")
-            .insert({
-              ...payload,
-              edit_unlocked_until: null,
-            })
-            .select("*")
-            .maybeSingle();
-
-      const { data, error } = await query;
+      const { data, error } = await supabase.rpc("save_daily_closure_report", {
+        p_report_date: reportDate,
+        p_leads_nuevos: values.leads_nuevos,
+        p_llamadas_realizadas: values.llamadas_realizadas,
+        p_llamadas_seguimiento: values.llamadas_seguimiento,
+        p_videollamadas_ejecutadas: values.videollamadas_ejecutadas,
+        p_videollamadas_agendadas: values.videollamadas_agendadas,
+        p_apartados_del_mes: values.apartados_del_mes,
+        p_enganches_del_mes: values.enganches_del_mes,
+        p_prospectos_calientes: values.prospectos_calientes,
+      });
 
       if (error) throw new Error(error.message);
       if (!data) throw new Error("No se pudo registrar el cierre de día");
