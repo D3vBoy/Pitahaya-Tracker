@@ -20,7 +20,7 @@ interface ProspectExportRow {
   fecha_apartado: string | null;
   fecha_enganche?: string | null;
   fecha_cierre?: string | null;
-  proximo_seguimiento?: string | null;
+  proximo_seguimiento: string | null;
   fecha_primer_contacto?: string | null;
   profiles?: { full_name: string | null } | null;
 }
