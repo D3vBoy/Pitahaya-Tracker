@@ -115,7 +115,6 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
       : getDirectConversationKey(conversation.peerUserId);
 
     setUnreadByConversation((prev) => ({ ...prev, [key]: 0 }));
-    dismissChatNotification(key);
 
     await supabase.from("team_message_reads").upsert({
       user_id: currentUserId,
@@ -123,7 +122,7 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
       peer_user_id: conversation.type === "general" ? null : conversation.peerUserId,
       last_read_at: new Date().toISOString(),
     }, { onConflict: "user_id,conversation_type,peer_user_id" });
-  }, [currentUserId, dismissChatNotification, supabase]);
+  }, [currentUserId, supabase]);
 
   useEffect(() => {
     let active = true;
