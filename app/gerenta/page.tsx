@@ -31,7 +31,7 @@ import {
   exportDailyMetricsPdf,
   exportGeneralProspectsReport,
   exportVentasCaidasReport,
-  filterProspectsForManagerPipeline,
+  filterProspectsForManagerPipelineTyped,
 } from "@/lib/reports/managerExports";
 import {
   DAILY_CLOSURE_SETUP_MESSAGE,
@@ -250,7 +250,7 @@ export default function GerentaPage() {
         );
       });
 
-      return filterProspectsForManagerPipeline(base, filters.segmento, filters.periodo);
+      return filterProspectsForManagerPipelineTyped(base, filters.segmento, filters.periodo);
     },
     [prospects, filters]
   );

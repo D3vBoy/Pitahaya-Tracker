@@ -304,3 +304,36 @@ export function filterProspectsForManagerPipeline(
     return true;
   });
 }
+
+interface PipelineFilterBase {
+  estatus_general: string;
+  apartado_realizado: boolean;
+  fecha_apartado: string | null;
+  fecha_enganche?: string | null;
+  firma_pcv?: string | null;
+  proximo_seguimiento: string | null;
+  fecha_primer_contacto?: string | null;
+  fecha_cierre?: string | null;
+}
+
+export function filterProspectsForManagerPipelineTyped<T extends PipelineFilterBase>(
+  prospects: T[],
+  segmento: string,
+  periodo: string
+): T[] {
+  return prospects.filter((prospect) => {
+    const segmentMatch =
+      !segmento ||
+      (segmento === "seguimiento" && isProspectInSeguimiento(prospect)) ||
+      (segmento === "proceso_venta" && isProspectInSalesProcess(prospect));
+
+    if (!segmentMatch) return false;
+
+    if (!periodo) return true;
+    if (periodo === "today" || periodo === "this_week" || periodo === "this_month" || periodo === "previous_months") {
+      return isDateInPreset(getProspectReferenceDate(prospect), periodo);
+    }
+
+    return true;
+  });
+}
