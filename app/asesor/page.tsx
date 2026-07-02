@@ -191,7 +191,6 @@ export default function AsesorPage() {
     }
 
     setDailyReportSubmitting(true);
-    let previousReportsSnapshot = dailyReports;
     try {
       const payload = {
         user_id: user.id,
@@ -202,24 +201,7 @@ export default function AsesorPage() {
 
       const existingReport = reportId || dailyReports.find((report) => report.report_date === reportDate)?.id || null;
 
-      const optimisticReport: DailyClosureReportRow = {
-        id: existingReport || `draft-${user.id}-${reportDate}`,
-        user_id: user.id,
-        report_date: reportDate,
-        ...values,
-        submitted_at: dailyReports.find((report) => report.report_date === reportDate)?.submitted_at || payload.updated_at,
-        created_at: dailyReports.find((report) => report.report_date === reportDate)?.created_at,
-        updated_at: payload.updated_at,
-        edit_unlocked_until: null,
-      };
-
-      previousReportsSnapshot = dailyReports;
-      setDailyReports((prev) => {
-        const next = prev.filter((report) => report.id !== optimisticReport.id && report.report_date !== reportDate);
-        return [optimisticReport, ...next].sort((a, b) => b.report_date.localeCompare(a.report_date));
-      });
-
-      const { error } = existingReport
+      const { data, error } = existingReport
         ? await supabase
             .from("daily_closure_reports")
             .update({
@@ -227,16 +209,29 @@ export default function AsesorPage() {
               edit_unlocked_until: null,
             })
             .eq("id", existingReport)
+            .select("*")
+            .maybeSingle()
         : await supabase
             .from("daily_closure_reports")
             .insert({
               ...payload,
               edit_unlocked_until: null,
-            });
+            })
+            .select("*")
+            .maybeSingle();
 
       if (error) throw new Error(error.message);
+      if (!data) {
+        throw new Error("No se guardaron cambios en el cierre. Verifica permisos de edición para esta fecha.");
+      }
+
+      setDailyReports((prev) => {
+        const next = prev.filter((report) => report.id !== data.id && report.report_date !== data.report_date);
+        return [data as DailyClosureReportRow, ...next].sort((a, b) => b.report_date.localeCompare(a.report_date));
+      });
+
+      await fetchDailyReports();
     } catch (error) {
-      setDailyReports(previousReportsSnapshot);
       throw new Error(error instanceof Error ? error.message : "No se pudo registrar el cierre de día");
     } finally {
       setDailyReportSubmitting(false);
