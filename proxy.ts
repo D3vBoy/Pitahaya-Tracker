@@ -1,7 +1,7 @@
 import { createServerSupabase } from "@/lib/supabase/server";
 import { NextResponse, type NextRequest } from "next/server";
 
-export async function middleware(request: NextRequest) {
+export async function proxy(request: NextRequest) {
   const { pathname } = request.nextUrl;
 
   // Never gate internal API routes with dashboard auth redirects.
@@ -10,7 +10,9 @@ export async function middleware(request: NextRequest) {
   }
 
   const supabase = await createServerSupabase();
-  const { data: { user } } = await supabase.auth.getUser();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
 
   if (!user && pathname !== "/login") {
     return NextResponse.redirect(new URL("/login", request.url));
