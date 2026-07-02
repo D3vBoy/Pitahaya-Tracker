@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { createClientSupabase } from "@/lib/supabase/client";
 import {
@@ -33,6 +33,7 @@ export function useTeamNotifications() {
 export default function TeamNotificationsProvider({ children }: { children?: React.ReactNode }) {
   const [currentUserId, setCurrentUserId] = useState("");
   const [unreadByConversation, setUnreadByConversation] = useState<Partial<Record<ChatUnreadKey, number>>>({});
+  const notificationToastIdsRef = useRef<Partial<Record<ChatUnreadKey, string>>>({});
 
   const supabase = useMemo(() => createClientSupabase(), []);
 
@@ -90,6 +91,30 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
     }
   }, []);
 
+  const showPersistentChatToast = useCallback((conversationKey: ChatUnreadKey, title: string, body: string) => {
+    const toastId = conversationKey;
+
+    notificationToastIdsRef.current[conversationKey] = toastId;
+
+    toast.custom(
+      (t) => (
+        <button
+          type="button"
+          onClick={() => toast.dismiss(toastId)}
+          className={`pointer-events-auto flex w-full max-w-85 items-start gap-3 rounded-2xl border border-pitahaya-border bg-[#170E25] px-4 py-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-all hover:border-pitahaya-cerise/45 hover:bg-[#1C102B] ${t.visible ? "opacity-100" : "opacity-0"}`}
+        >
+          <span className="mt-0.5 text-lg">💬</span>
+          <span className="min-w-0 flex-1">
+            <span className="block text-sm font-semibold text-white">{title}</span>
+            <span className="mt-1 block text-sm text-pitahaya-gray-300">{body}</span>
+            <span className="mt-2 block text-[11px] uppercase tracking-[0.14em] text-pitahaya-gray-500">Toca para abrir y cerrar</span>
+          </span>
+        </button>
+      ),
+      { id: toastId, duration: Infinity }
+    );
+  }, []);
+
   const markConversationRead = useCallback(async (conversation: { type: "general" } | { type: "direct"; peerUserId: string }) => {
     if (!currentUserId) return;
 
@@ -98,6 +123,8 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
       : getDirectConversationKey(conversation.peerUserId);
 
     setUnreadByConversation((prev) => ({ ...prev, [key]: 0 }));
+    toast.dismiss(notificationToastIdsRef.current[key] || key);
+    delete notificationToastIdsRef.current[key];
 
     await supabase.from("team_message_reads").upsert({
       user_id: currentUserId,
@@ -190,7 +217,7 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
             }
 
             const title = message.is_global ? "Nuevo mensaje en chat general" : "Nuevo mensaje directo";
-            toast(title, { icon: "💬" });
+            showPersistentChatToast(unreadKey || getGlobalConversationKey(), title, message.body.slice(0, 120));
             playNotificationTone();
             void showBrowserNotification(title, message.body.slice(0, 120));
           }
@@ -211,7 +238,7 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
       active = false;
       cleanup?.();
     };
-  }, [playNotificationTone, showBrowserNotification, supabase]);
+  }, [playNotificationTone, showBrowserNotification, showPersistentChatToast, supabase]);
 
   const totalUnreadCount = useMemo(
     () => Object.values(unreadByConversation).reduce<number>((acc, count) => acc + (count || 0), 0),
