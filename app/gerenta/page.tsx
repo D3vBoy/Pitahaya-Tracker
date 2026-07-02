@@ -550,7 +550,20 @@ export default function GerentaPage() {
                 whileTap={{ scale: 0.98 }}
                 onClick={async () => {
                   try {
-                    const result = await exportAnalyticsPDF(filtered, filters.corte || null);
+                    const result = await exportAnalyticsPDF(
+                      filtered.map((prospect) => ({
+                        id: prospect.id,
+                        nombre_cliente: prospect.nombre_cliente,
+                        estatus_general: prospect.estatus_general,
+                        probabilidad_cierre: prospect.probabilidad_cierre,
+                        monto_total: prospect.monto_total,
+                        apartado_realizado: prospect.apartado_realizado,
+                        proximo_seguimiento: prospect.proximo_seguimiento ?? null,
+                        fecha_apartado: prospect.fecha_apartado,
+                        profiles: prospect.profiles,
+                      })),
+                      filters.corte || null
+                    );
                     if (result.usedFallback) {
                       toast.success("PDF generado con resumen alterno");
                       if (result.warnings.length > 0) {
