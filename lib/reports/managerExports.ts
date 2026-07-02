@@ -30,6 +30,8 @@ interface AdvisorRow {
   full_name: string | null;
 }
 
+type ExportFormat = "csv" | "pdf";
+
 function downloadFile(content: string, fileName: string, mimeType: string) {
   const blob = new Blob([content], { type: mimeType });
   const url = URL.createObjectURL(blob);
@@ -59,6 +61,88 @@ function toCsv(rows: Array<Record<string, string | number | boolean | null | und
   return lines.join("\n");
 }
 
+function formatCurrency(value: number) {
+  return value.toLocaleString("es-MX", {
+    style: "currency",
+    currency: "MXN",
+    maximumFractionDigits: 0,
+  });
+}
+
+function saveRowsPdf(title: string, rows: Array<Record<string, string | number>>, fileName: string) {
+  const pdf = new jsPDF("l", "mm", "a4");
+  const pageWidth = pdf.internal.pageSize.getWidth();
+  const pageHeight = pdf.internal.pageSize.getHeight();
+
+  pdf.setFillColor(12, 8, 22);
+  pdf.rect(0, 0, pageWidth, 24, "F");
+  pdf.setTextColor(255, 255, 255);
+  pdf.setFont("helvetica", "bold");
+  pdf.setFontSize(13);
+  pdf.text("Pitahaya Tracker", 10, 9);
+  pdf.setFontSize(10);
+  pdf.text(title, 10, 16);
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(8);
+  pdf.text(`Generado: ${new Date().toLocaleString("es-MX")}`, pageWidth - 10, 16, { align: "right" });
+
+  if (rows.length === 0) {
+    pdf.setTextColor(35, 35, 35);
+    pdf.setFontSize(11);
+    pdf.text("No hay datos para exportar.", 10, 35);
+    pdf.save(fileName);
+    return;
+  }
+
+  const headers = Object.keys(rows[0]);
+  const colWidth = (pageWidth - 20) / headers.length;
+  let y = 30;
+
+  const drawHeader = () => {
+    pdf.setFillColor(235, 228, 248);
+    pdf.rect(10, y, pageWidth - 20, 8, "F");
+    pdf.setTextColor(20, 20, 20);
+    pdf.setFont("helvetica", "bold");
+    pdf.setFontSize(7);
+
+    headers.forEach((header, index) => {
+      const x = 10 + index * colWidth + 1.5;
+      const label = header.replaceAll("_", " ");
+      const line = pdf.splitTextToSize(label, colWidth - 3)[0] || "";
+      pdf.text(line, x, y + 5);
+    });
+
+    y += 9;
+  };
+
+  drawHeader();
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(7);
+
+  rows.forEach((row) => {
+    if (y > pageHeight - 10) {
+      pdf.addPage();
+      y = 12;
+      drawHeader();
+      pdf.setFont("helvetica", "normal");
+      pdf.setFontSize(7);
+    }
+
+    headers.forEach((header, index) => {
+      const x = 10 + index * colWidth + 1.5;
+      const text = String(row[header] ?? "");
+      const line = pdf.splitTextToSize(text, colWidth - 3)[0] || "";
+      pdf.text(line, x, y + 4);
+    });
+
+    pdf.setDrawColor(228, 228, 228);
+    pdf.line(10, y + 5, pageWidth - 10, y + 5);
+    y += 6;
+  });
+
+  pdf.save(fileName);
+}
+
 function formatMxDate(value: string | null | undefined) {
   if (!value) return "";
   const parsed = new Date(value);
@@ -77,7 +161,7 @@ function diffDaysFromToday(value: string | null | undefined) {
   return Math.floor((startToday.getTime() - startTarget.getTime()) / 86400000);
 }
 
-export function exportGeneralProspectsReport(prospects: ProspectExportRow[]) {
+export function exportGeneralProspectsReport(prospects: ProspectExportRow[], format: ExportFormat = "csv") {
   const rows = prospects.map((prospect) => ({
     asesor: prospect.profiles?.full_name || "Sin nombre",
     cliente: prospect.nombre_cliente,
@@ -92,10 +176,22 @@ export function exportGeneralProspectsReport(prospects: ProspectExportRow[]) {
     proximo_seguimiento: formatMxDate(prospect.proximo_seguimiento),
   }));
 
+  if (format === "pdf") {
+    saveRowsPdf(
+      "Reporte general de asesores",
+      rows.map((row) => ({
+        ...row,
+        monto_total: formatCurrency(Number(row.monto_total || 0)),
+      })),
+      `reporte-general-asesores-${getTodayDateKey()}.pdf`
+    );
+    return;
+  }
+
   downloadFile(toCsv(rows), `reporte-general-asesores-${getTodayDateKey()}.csv`, "text/csv;charset=utf-8");
 }
 
-export function exportApartadosStateReport(prospects: ProspectExportRow[]) {
+export function exportApartadosStateReport(prospects: ProspectExportRow[], format: ExportFormat = "csv") {
   const rows = prospects
     .filter((prospect) => isProspectInSalesProcess(prospect))
     .map((prospect) => {
@@ -123,10 +219,22 @@ export function exportApartadosStateReport(prospects: ProspectExportRow[]) {
       };
     });
 
+  if (format === "pdf") {
+    saveRowsPdf(
+      "Reporte de apartados",
+      rows.map((row) => ({
+        ...row,
+        monto_total: formatCurrency(Number(row.monto_total || 0)),
+      })),
+      `reporte-apartados-${getTodayDateKey()}.pdf`
+    );
+    return;
+  }
+
   downloadFile(toCsv(rows), `reporte-apartados-${getTodayDateKey()}.csv`, "text/csv;charset=utf-8");
 }
 
-export function exportVentasCaidasReport(prospects: ProspectExportRow[]) {
+export function exportVentasCaidasReport(prospects: ProspectExportRow[], format: ExportFormat = "csv") {
   const rows = prospects
     .filter((prospect) => prospect.estatus_general.trim() === "Venta caída. Motivo en observaciones.")
     .map((prospect) => ({
@@ -139,6 +247,18 @@ export function exportVentasCaidasReport(prospects: ProspectExportRow[]) {
       probabilidad_ultimo_registro: prospect.probabilidad_cierre ?? 0,
       estatus: prospect.estatus_general,
     }));
+
+  if (format === "pdf") {
+    saveRowsPdf(
+      "Reporte de ventas caidas",
+      rows.map((row) => ({
+        ...row,
+        monto_total: formatCurrency(Number(row.monto_total || 0)),
+      })),
+      `reporte-ventas-caidas-${getTodayDateKey()}.pdf`
+    );
+    return;
+  }
 
   downloadFile(toCsv(rows), `reporte-ventas-caidas-${getTodayDateKey()}.csv`, "text/csv;charset=utf-8");
 }

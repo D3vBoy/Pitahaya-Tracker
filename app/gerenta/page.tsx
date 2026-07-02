@@ -112,6 +112,7 @@ export default function GerentaPage() {
   const [selectedReportDate, setSelectedReportDate] = useState(getTodayDateKey());
   const [tab, setTab] = useState<"action" | "pipeline" | "dailyClose" | "chat" | "analytics">("action");
   const [downloadType, setDownloadType] = useState<"general" | "apartados" | "caidas" | "metricas">("general");
+  const [downloadFormat, setDownloadFormat] = useState<"csv" | "pdf">("csv");
   const [metricsPeriod, setMetricsPeriod] = useState<"day" | "week" | "month">("day");
   const [filters, setFilters] = useState({
     search: "",
@@ -449,19 +450,19 @@ export default function GerentaPage() {
   const handleDownloadReport = async () => {
     try {
       if (downloadType === "general") {
-        exportGeneralProspectsReport(filtered);
+        exportGeneralProspectsReport(filtered, downloadFormat);
         toast.success("Reporte general exportado");
         return;
       }
 
       if (downloadType === "apartados") {
-        exportApartadosStateReport(filtered);
+        exportApartadosStateReport(filtered, downloadFormat);
         toast.success("Reporte de apartados exportado");
         return;
       }
 
       if (downloadType === "caidas") {
-        exportVentasCaidasReport(filtered);
+        exportVentasCaidasReport(filtered, downloadFormat);
         toast.success("Reporte de ventas caidas exportado");
         return;
       }
@@ -512,7 +513,7 @@ export default function GerentaPage() {
             <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
               <div className="premium-panel rounded-2xl p-4">
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-pitahaya-gray-400">Descargas gerencia</p>
-                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-3">
+                <div className="mt-3 grid grid-cols-1 gap-3 md:grid-cols-4">
                   <select
                     value={downloadType}
                     onChange={(event) => setDownloadType(event.target.value as typeof downloadType)}
@@ -522,6 +523,16 @@ export default function GerentaPage() {
                     <option value="apartados">2) Reporte de apartados activos/cerrados</option>
                     <option value="caidas">3) Reporte de ventas caidas</option>
                     <option value="metricas">4) PDF metricas cierre del dia</option>
+                  </select>
+
+                  <select
+                    value={downloadType === "metricas" ? "pdf" : downloadFormat}
+                    onChange={(event) => setDownloadFormat(event.target.value as typeof downloadFormat)}
+                    disabled={downloadType === "metricas"}
+                    className="pitahaya-select rounded-xl border border-pitahaya-border bg-[#0A0612]/90 px-4 py-2.5 text-sm text-white disabled:opacity-50"
+                  >
+                    <option value="csv">CSV</option>
+                    <option value="pdf">PDF</option>
                   </select>
 
                   <select
