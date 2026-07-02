@@ -8,7 +8,7 @@ export default function PWARegister() {
     if (!("serviceWorker" in navigator)) return;
 
     navigator.serviceWorker
-      .register("/sw.js?v=3", { updateViaCache: "none" })
+      .register("/sw.js?v=4", { updateViaCache: "none" })
       .then((registration) => registration.update())
       .catch((error) => {
         console.error("Error registrando service worker", error);

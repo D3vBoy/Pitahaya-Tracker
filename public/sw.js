@@ -1,4 +1,4 @@
-const CACHE_VERSION = "pitahaya-pwa-v3";
+const CACHE_VERSION = "pitahaya-pwa-v4";
 const PRECACHE_URLS = ["/pitahaya.webmanifest", "/api/pwa-icon/192", "/api/pwa-icon/512"];
 
 function isNextAsset(url) {
