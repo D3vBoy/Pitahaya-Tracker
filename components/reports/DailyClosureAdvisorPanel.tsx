@@ -149,10 +149,22 @@ export default function DailyClosureAdvisorPanel({
         scale: 2,
         useCORS: true,
       });
+      const blob = await new Promise<Blob>((resolve, reject) => {
+        canvas.toBlob((nextBlob) => {
+          if (nextBlob) {
+            resolve(nextBlob);
+          } else {
+            reject(new Error("No se pudo generar la imagen del reporte"));
+          }
+        }, "image/png");
+      });
+
       const link = document.createElement("a");
+      const objectUrl = URL.createObjectURL(blob);
       link.download = `cierre-dia-${selectedDate}.png`;
-      link.href = canvas.toDataURL("image/png", 1);
+      link.href = objectUrl;
       link.click();
+      window.setTimeout(() => URL.revokeObjectURL(objectUrl), 1000);
     } catch {
       toast.error("No se pudo generar la imagen del reporte");
     }

@@ -191,6 +191,7 @@ export default function AsesorPage() {
     }
 
     setDailyReportSubmitting(true);
+    let previousReportsSnapshot = dailyReports;
     try {
       const payload = {
         user_id: user.id,
@@ -200,6 +201,23 @@ export default function AsesorPage() {
       };
 
       const existingReport = reportId || dailyReports.find((report) => report.report_date === reportDate)?.id || null;
+
+      const optimisticReport: DailyClosureReportRow = {
+        id: existingReport || `draft-${user.id}-${reportDate}`,
+        user_id: user.id,
+        report_date: reportDate,
+        ...values,
+        submitted_at: dailyReports.find((report) => report.report_date === reportDate)?.submitted_at || payload.updated_at,
+        created_at: dailyReports.find((report) => report.report_date === reportDate)?.created_at,
+        updated_at: payload.updated_at,
+        edit_unlocked_until: null,
+      };
+
+      previousReportsSnapshot = dailyReports;
+      setDailyReports((prev) => {
+        const next = prev.filter((report) => report.id !== optimisticReport.id && report.report_date !== reportDate);
+        return [optimisticReport, ...next].sort((a, b) => b.report_date.localeCompare(a.report_date));
+      });
 
       const { error } = existingReport
         ? await supabase
@@ -217,8 +235,8 @@ export default function AsesorPage() {
             });
 
       if (error) throw new Error(error.message);
-      await fetchDailyReports();
     } catch (error) {
+      setDailyReports(previousReportsSnapshot);
       throw new Error(error instanceof Error ? error.message : "No se pudo registrar el cierre de día");
     } finally {
       setDailyReportSubmitting(false);
