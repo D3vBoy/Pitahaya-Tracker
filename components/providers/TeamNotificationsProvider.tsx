@@ -1,7 +1,6 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
-import toast from "react-hot-toast";
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { createClientSupabase } from "@/lib/supabase/client";
 import {
   ChatUnreadKey,
@@ -20,6 +19,12 @@ interface TeamNotificationsContextValue {
   markConversationRead: (conversation: { type: "general" } | { type: "direct"; peerUserId: string }) => Promise<void>;
 }
 
+interface ChatNotificationItem {
+  key: ChatUnreadKey;
+  title: string;
+  body: string;
+}
+
 const TeamNotificationsContext = createContext<TeamNotificationsContextValue>({
   totalUnreadCount: 0,
   unreadByConversation: {},
@@ -33,7 +38,7 @@ export function useTeamNotifications() {
 export default function TeamNotificationsProvider({ children }: { children?: React.ReactNode }) {
   const [currentUserId, setCurrentUserId] = useState("");
   const [unreadByConversation, setUnreadByConversation] = useState<Partial<Record<ChatUnreadKey, number>>>({});
-  const notificationToastIdsRef = useRef<Partial<Record<ChatUnreadKey, string>>>({});
+  const [chatNotifications, setChatNotifications] = useState<ChatNotificationItem[]>([]);
 
   const supabase = useMemo(() => createClientSupabase(), []);
 
@@ -91,28 +96,15 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
     }
   }, []);
 
-  const showPersistentChatToast = useCallback((conversationKey: ChatUnreadKey, title: string, body: string) => {
-    const toastId = conversationKey;
+  const upsertChatNotification = useCallback((conversationKey: ChatUnreadKey, title: string, body: string) => {
+    setChatNotifications((prev) => {
+      const next = prev.filter((item) => item.key !== conversationKey);
+      return [{ key: conversationKey, title, body }, ...next];
+    });
+  }, []);
 
-    notificationToastIdsRef.current[conversationKey] = toastId;
-
-    toast.custom(
-      (t) => (
-        <button
-          type="button"
-          onClick={() => toast.dismiss(toastId)}
-          className={`pointer-events-auto flex w-full max-w-85 items-start gap-3 rounded-2xl border border-pitahaya-border bg-[#170E25] px-4 py-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-all hover:border-pitahaya-cerise/45 hover:bg-[#1C102B] ${t.visible ? "opacity-100" : "opacity-0"}`}
-        >
-          <span className="mt-0.5 text-lg">💬</span>
-          <span className="min-w-0 flex-1">
-            <span className="block text-sm font-semibold text-white">{title}</span>
-            <span className="mt-1 block text-sm text-pitahaya-gray-300">{body}</span>
-            <span className="mt-2 block text-[11px] uppercase tracking-[0.14em] text-pitahaya-gray-500">Toca para abrir y cerrar</span>
-          </span>
-        </button>
-      ),
-      { id: toastId, duration: Infinity }
-    );
+  const dismissChatNotification = useCallback((conversationKey: ChatUnreadKey) => {
+    setChatNotifications((prev) => prev.filter((item) => item.key !== conversationKey));
   }, []);
 
   const markConversationRead = useCallback(async (conversation: { type: "general" } | { type: "direct"; peerUserId: string }) => {
@@ -123,8 +115,7 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
       : getDirectConversationKey(conversation.peerUserId);
 
     setUnreadByConversation((prev) => ({ ...prev, [key]: 0 }));
-    toast.dismiss(notificationToastIdsRef.current[key] || key);
-    delete notificationToastIdsRef.current[key];
+    dismissChatNotification(key);
 
     await supabase.from("team_message_reads").upsert({
       user_id: currentUserId,
@@ -132,7 +123,7 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
       peer_user_id: conversation.type === "general" ? null : conversation.peerUserId,
       last_read_at: new Date().toISOString(),
     }, { onConflict: "user_id,conversation_type,peer_user_id" });
-  }, [currentUserId, supabase]);
+  }, [currentUserId, dismissChatNotification, supabase]);
 
   useEffect(() => {
     let active = true;
@@ -217,7 +208,9 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
             }
 
             const title = message.is_global ? "Nuevo mensaje en chat general" : "Nuevo mensaje directo";
-            showPersistentChatToast(unreadKey || getGlobalConversationKey(), title, message.body.slice(0, 120));
+            if (unreadKey) {
+              upsertChatNotification(unreadKey, title, message.body.slice(0, 120));
+            }
             playNotificationTone();
             void showBrowserNotification(title, message.body.slice(0, 120));
           }
@@ -238,7 +231,7 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
       active = false;
       cleanup?.();
     };
-  }, [playNotificationTone, showBrowserNotification, showPersistentChatToast, supabase]);
+  }, [playNotificationTone, showBrowserNotification, supabase, upsertChatNotification]);
 
   const totalUnreadCount = useMemo(
     () => Object.values(unreadByConversation).reduce<number>((acc, count) => acc + (count || 0), 0),
@@ -247,6 +240,23 @@ export default function TeamNotificationsProvider({ children }: { children?: Rea
 
   return (
     <TeamNotificationsContext.Provider value={{ totalUnreadCount, unreadByConversation, markConversationRead }}>
+      <div className="pointer-events-none fixed right-4 top-24 z-120 flex w-[min(100vw-2rem,24rem)] flex-col gap-3">
+        {chatNotifications.map((notification) => (
+          <button
+            key={notification.key}
+            type="button"
+            onClick={() => dismissChatNotification(notification.key)}
+            className="pointer-events-auto flex w-full items-start gap-3 rounded-2xl border border-pitahaya-border bg-[#170E25] px-4 py-3 text-left shadow-[0_18px_50px_rgba(0,0,0,0.35)] transition-all hover:border-pitahaya-cerise/45 hover:bg-[#1C102B]"
+          >
+            <span className="mt-0.5 text-lg">💬</span>
+            <span className="min-w-0 flex-1">
+              <span className="block text-sm font-semibold text-white">{notification.title}</span>
+              <span className="mt-1 block text-sm text-pitahaya-gray-300">{notification.body}</span>
+              <span className="mt-2 block text-[11px] uppercase tracking-[0.14em] text-pitahaya-gray-500">Permanece hasta abrirla</span>
+            </span>
+          </button>
+        ))}
+      </div>
       {children ?? null}
     </TeamNotificationsContext.Provider>
   );
